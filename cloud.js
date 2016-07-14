@@ -128,15 +128,15 @@ post4.set('bshow', 1);
 post4.save();
 });
 
-
-/*AV.Cloud.define(‘destroyAnonymous', function(request, response) {
+AV.Cloud.define('destroyAnonymous', function(request, response) {
+console.log('start close anonymous ');
 // 知道 objectId，创建 AVObject
 var post1 = AV.Object.createWithoutData('groupInfo', '5677698460b2260ee44a6ae8');
 // 更改属性
-post1.set('bCanCreate’,0);
+post1.set('bCanCreate', 0);
 // 保存
 post1.save();
-});*/
+});
 
 AV.Cloud.define('openAnonymous', function(request, response) {
 // 知道 objectId，创建 AVObject
