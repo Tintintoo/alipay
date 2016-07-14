@@ -9,7 +9,7 @@ AV.Cloud.define('getServerTime', function(request, response)
   response.success(new Date());
 });
 //支付二次检测
-AV.Cloud.define('payCheck', function(request, response) 
+/*AV.Cloud.define('payCheck', function(request, response)
 {
   AV.Cloud.httpRequest({
   method: 'POST',
@@ -449,6 +449,6 @@ query.find({
     console.log('Error: ' + error.code + ' ' + error.message);
   }
 });
-});
+});*/
 
 module.exports = AV.Cloud;
