@@ -172,4 +172,216 @@ query.find({
 console.log('end clearXZQD');
 });
 
+AV.Cloud.define('logUser', function(request, response) {
+var query = new AV.Query('chatUsers');
+query.equalTo('userID', 266392);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    var Post = AV.Object.extend('checkUser');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+
+content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('userID');
+      post.set('userID', content);
+      content = object.get('goldNum');
+      post.set('goldNum', content);
+      content = object.get('goldMax');
+      post.set('goldMax', content);
+      content = object.get('Diamond');
+      post.set('Diamond', content);
+      content = object.get('beLikedNum');
+      post.set('beLikedNum', content);
+      content = object.get('dailyUseGold');
+      post.set('dailyUseGold', content);
+      content = object.get('dailygood');
+      post.set('dailygood', content);
+      content = object.get('dailylike');
+      post.set('dailylike', content);
+      content = object.get('greatNum');
+      post.set('greatNum', content);
+      content = object.get('useGold');
+      post.set('useGold', content);
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+
+var query = new AV.Query('chatUsers');
+query.equalTo('userID', 99296);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    var Post = AV.Object.extend('checkUser');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+
+content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('userID');
+      post.set('userID', content);
+      content = object.get('goldNum');
+      post.set('goldNum', content);
+      content = object.get('goldMax');
+      post.set('goldMax', content);
+      content = object.get('Diamond');
+      post.set('Diamond', content);
+      content = object.get('beLikedNum');
+      post.set('beLikedNum', content);
+      content = object.get('dailyUseGold');
+      post.set('dailyUseGold', content);
+      content = object.get('dailygood');
+      post.set('dailygood', content);
+      content = object.get('dailylike');
+      post.set('dailylike', content);
+      content = object.get('greatNum');
+      post.set('greatNum', content);
+      content = object.get('useGold');
+      post.set('useGold', content);
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+
+var query = new AV.Query('chatUsers');
+query.equalTo('userID', 87001);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    var Post = AV.Object.extend('checkUser');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+
+content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('userID');
+      post.set('userID', content);
+      content = object.get('goldNum');
+      post.set('goldNum', content);
+      content = object.get('goldMax');
+      post.set('goldMax', content);
+      content = object.get('Diamond');
+      post.set('Diamond', content);
+      content = object.get('beLikedNum');
+      post.set('beLikedNum', content);
+      content = object.get('dailyUseGold');
+      post.set('dailyUseGold', content);
+      content = object.get('dailygood');
+      post.set('dailygood', content);
+      content = object.get('dailylike');
+      post.set('dailylike', content);
+      content = object.get('greatNum');
+      post.set('greatNum', content);
+      content = object.get('useGold');
+      post.set('useGold', content);
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+
+var query = new AV.Query('chatUsers');
+query.equalTo('userID', 300922);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    var Post = AV.Object.extend('checkUser');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+
+content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('userID');
+      post.set('userID', content);
+      content = object.get('goldNum');
+      post.set('goldNum', content);
+      content = object.get('goldMax');
+      post.set('goldMax', content);
+      content = object.get('Diamond');
+      post.set('Diamond', content);
+      content = object.get('beLikedNum');
+      post.set('beLikedNum', content);
+      content = object.get('dailyUseGold');
+      post.set('dailyUseGold', content);
+      content = object.get('dailygood');
+      post.set('dailygood', content);
+      content = object.get('dailylike');
+      post.set('dailylike', content);
+      content = object.get('greatNum');
+      post.set('greatNum', content);
+      content = object.get('useGold');
+      post.set('useGold', content);
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+
+var query = new AV.Query('chatUsers');
+query.equalTo('userID', 248330);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    var Post = AV.Object.extend('checkUser');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+
+content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('userID');
+      post.set('userID', content);
+      content = object.get('goldNum');
+      post.set('goldNum', content);
+      content = object.get('goldMax');
+      post.set('goldMax', content);
+      content = object.get('Diamond');
+      post.set('Diamond', content);
+      content = object.get('beLikedNum');
+      post.set('beLikedNum', content);
+      content = object.get('dailyUseGold');
+      post.set('dailyUseGold', content);
+      content = object.get('dailygood');
+      post.set('dailygood', content);
+      content = object.get('dailylike');
+      post.set('dailylike', content);
+      content = object.get('greatNum');
+      post.set('greatNum', content);
+      content = object.get('useGold');
+      post.set('useGold', content);
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+});
+
 module.exports = AV.Cloud;
