@@ -384,4 +384,71 @@ content = object.get('userID');
 });
 });
 
+AV.Cloud.define('clearChatHis', function(request, response) {
+var query = new AV.Query('Attachments');
+query.addAscending('createdAt');
+query.limit(1000);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var file=object.get('image');
+      file.destroy();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+)};
+
+AV.Cloud.define('clearBadData', function(request, response) {
+var query = new AV.Query('package');
+query.lessThanOrEqualTo('itemCount', 0);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      
+      object.destroy();
+      
+      
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+});
+
+AV.Cloud.define('logRank', function(request, response) {
+var query = new AV.Query('chatUsers');
+query.limit(10);
+query.descending('dailylike');
+query.find({
+  success: function(results) {
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var post = new Post();
+      content = object.get('userID');
+      post.set('userID', content);
+      var content = object.get('dailylike');
+      post.set('dailylike', content);
+      post.set('rankType', '日魅力榜');
+    
+      post.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+});
+
+
 module.exports = AV.Cloud;
