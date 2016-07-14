@@ -404,4 +404,25 @@ query.find({
 });
 });
 
+AV.Cloud.define('clearBadData', function(request, response) {
+var query = new AV.Query('package');
+query.lessThanOrEqualTo('itemCount', 0);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      
+      object.destroy();
+      
+      
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+)};
+
 module.exports = AV.Cloud;
