@@ -129,7 +129,7 @@ post4.save();
 });
 
 
-/*AV.Cloud.define(‘destroyAnoymous’, function(request, response) 
+AV.Cloud.define(‘destroyAnoymous’, function(request, response) 
 {
 console.log('start close anonymous ');
 // 知道 objectId，创建 AVObject
@@ -149,7 +149,7 @@ post1.set('bCanCreate',1);
 post1.save();
 });
 
-AV.Cloud.define('clearXZQD', function(request, response) {
+/*AV.Cloud.define('clearXZQD', function(request, response) {
 console.log('start clearXZQD');
 var query = new AV.Query('groupInfo');
 query.equalTo('Type', 1);
