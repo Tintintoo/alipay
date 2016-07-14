@@ -50,7 +50,7 @@ AV.Cloud.define('clearQD', function(request, response) {
 });
 
 
-/*AV.Cloud.define('closeSoc', function(request, response) 
+AV.Cloud.define('closeSoc', function(request, response) 
 {
   // 知道 objectId，创建 AVObject
 	var post1 = AV.Object.createWithoutData('groupInfo','55e6f7c060b2fe714836657b');
@@ -89,7 +89,7 @@ post4.set('bshow', 0);
 post4.save();
 });
 
-AV.Cloud.define('openSo', function(request, response) 
+/*AV.Cloud.define('openSo', function(request, response) 
 {
 // 知道 objectId，创建 AVObject
 var post1 = AV.Object.createWithoutData('groupInfo', '55e6f7c060b2fe714836657b');
