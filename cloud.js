@@ -53,7 +53,7 @@ AV.Cloud.define('clearQD', function(request, response) {
 AV.Cloud.define('closeSoc', function(request, response) 
 {
   // 知道 objectId，创建 AVObject
-	var post1 = AV.Object.createWithoutData('groupInfo', '55e6f7c060b2fe714836657b');
+	var post1 = AV.Object.createWithoutData('groupInfo','55e6f7c060b2fe714836657b');
 // 更改属性
 post1.set('bshow', 0);
 // 保存
@@ -91,7 +91,6 @@ post4.save();
 
 AV.Cloud.define('openSo', function(request, response) 
 {
-
 // 知道 objectId，创建 AVObject
 var post1 = AV.Object.createWithoutData('groupInfo', '55e6f7c060b2fe714836657b');
 // 更改属性
@@ -133,29 +132,6 @@ post4.save();
 AV.Cloud.define(‘destroyAnoymous’, function(request, response) 
 {
 console.log('start close anonymous ');
-/*var query = new AV.Query('shareInfoTable');
-query.equalTo('groupID',17);
-query.notEqualTo('bTop', 1);
-query.limit(900);
-query.find({
-  success: function(results) {
-    console.log('Successfully retrieved ' + results.length + ' posts.');
-    // 处理返回的结果数据
-query.destroyAll({
-   success: function(){
-      // 成功删除 query 命中的所有实例.
-   },
-   error: function(err){
-      // 失败了.
-   }
-   });
-   
-  },
-  error: function(error) {
-    console.log('Error: ' + error.code + ' ' + error.message);
-  }
-});*/
-
 // 知道 objectId，创建 AVObject
 var post1 = AV.Object.createWithoutData('groupInfo', '5677698460b2260ee44a6ae8');
 // 更改属性
@@ -175,7 +151,6 @@ post1.save();
 
 AV.Cloud.define('clearXZQD', function(request, response) {
 console.log('start clearXZQD');
-
 var query = new AV.Query('groupInfo');
 query.equalTo('Type', 1);
 query.find({
@@ -194,7 +169,6 @@ query.find({
     console.log('Error: ' + error.code + ' ' + error.message);
   }
 });
-
 console.log('end clearXZQD');
 });
 
@@ -430,9 +404,7 @@ query.find({
 });
 });
 
-AV.Cloud.define('
-clearBadData
-', function(request, response) 
+AV.Cloud.define('clearBadData', function(request, response)
 {
 var query = new AV.Query('package');
 query.lessThanOrEqualTo('itemCount', 0);
@@ -454,9 +426,7 @@ query.find({
 });
 });
 
-AV.Cloud.define('
-logRank
-', function(request, response) {
+AV.Cloud.define('logRank', function(request, response) {
 var query = new AV.Query('chatUsers');
 query.limit(10);
 query.descending('dailylike');
