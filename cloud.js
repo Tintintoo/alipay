@@ -147,7 +147,7 @@ post1.set('bCanCreate',1);
 post1.save();
 });
 
-AV.Cloud.define('clearXZQD', function(request, response) {
+/*AV.Cloud.define('clearXZQD', function(request, response) {
 console.log('start clearXZQD');
 var query = new AV.Query('groupInfo');
 query.equalTo('Type', 1);
@@ -447,6 +447,6 @@ query.find({
     console.log('Error: ' + error.code + ' ' + error.message);
   }
 });
-});
+});*/
 
 module.exports = AV.Cloud;
