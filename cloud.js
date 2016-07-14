@@ -131,7 +131,7 @@ post4.save();
 
 AV.Cloud.define(‘destroyAnoymous’, function(request, response) 
 {
-console.log('start close anonymous ');
+//console.log('start close anonymous ');
 // 知道 objectId，创建 AVObject
 var post1 = AV.Object.createWithoutData('groupInfo', '5677698460b2260ee44a6ae8');
 // 更改属性
