@@ -447,6 +447,6 @@ query.find({
     console.log('Error: ' + error.code + ' ' + error.message);
   }
 });
-});*/
+});
 
 module.exports = AV.Cloud;
