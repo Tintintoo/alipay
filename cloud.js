@@ -29,7 +29,7 @@ AV.Cloud.define('payCheck', function(request, response)
 });
 
 
-/*AV.Cloud.define('clearQD', function(request, response) {
+AV.Cloud.define('clearQD', function(request, response) {
 // 知道 objectId，创建 AVObject
  var post = AV.Object.createWithoutData('qianDaoInfo', '556347fde4b0fa5c84ebae71');
 // 更改属性
@@ -50,7 +50,7 @@ AV.Cloud.define('payCheck', function(request, response)
 });
 
 
-AV.Cloud.define('closeSoc', function(request, response) 
+/*AV.Cloud.define('closeSoc', function(request, response) 
 {
   // 知道 objectId，创建 AVObject
 	var post1 = AV.Object.createWithoutData('groupInfo','55e6f7c060b2fe714836657b');
