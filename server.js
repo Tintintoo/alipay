@@ -3,7 +3,7 @@ var AV = require('leanengine');
 
 var APP_ID = process.env.LEANCLOUD_APP_ID;
 var APP_KEY = process.env.LEANCLOUD_APP_KEY;
-var MASTER_KEY = process.env.LEANCLOUD_APP_PORT;
+var MASTER_KEY = process.env.LEANCLOUD_APP_MASTER_KEY;
 
 AV.initialize(APP_ID, APP_KEY, MASTER_KEY);
 
