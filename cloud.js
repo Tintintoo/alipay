@@ -147,5 +147,29 @@ post1.set('bCanCreate',1);
 post1.save();
 });
 
+AV.Cloud.define('clearXZQD', function(request, response) {
+console.log('start clearXZQD');
+
+var query = new AV.Query('groupInfo');
+query.equalTo('Type', 1);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var content = object.get('signCount');
+    object.set('lastDaySign', content);
+    object.set('signCount', 0);
+    object.save();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+
+console.log('end clearXZQD');
+});
 
 module.exports = AV.Cloud;
