@@ -9,7 +9,7 @@ AV.Cloud.define('getServerTime', function(request, response)
   response.success(new Date());
 });
 //支付二次检测
-/*AV.Cloud.define('payCheck', function(request, response)
+AV.Cloud.define('payCheck', function(request, response)
 {
   AV.Cloud.httpRequest({
   method: 'POST',
@@ -29,7 +29,7 @@ AV.Cloud.define('getServerTime', function(request, response)
 });
 
 
-AV.Cloud.define('clearQD', function(request, response) {
+/*AV.Cloud.define('clearQD', function(request, response) {
 // 知道 objectId，创建 AVObject
  var post = AV.Object.createWithoutData('qianDaoInfo', '556347fde4b0fa5c84ebae71');
 // 更改属性
