@@ -384,4 +384,24 @@ content = object.get('userID');
 });
 });
 
+AV.Cloud.define('clearChatHis', function(request, response) {
+var query = new AV.Query('Attachments');
+query.addAscending('createdAt');
+query.limit(1000);
+query.find({
+  success: function(results) {
+    console.log('Successfully retrieved ' + results.length + ' posts.');
+    // 处理返回的结果数据
+    for (var i = 0; i < results.length; i++) {
+      var object = results[i];
+      var file=object.get('image');
+      file.destroy();
+    }
+  },
+  error: function(error) {
+    console.log('Error: ' + error.code + ' ' + error.message);
+  }
+});
+});
+
 module.exports = AV.Cloud;
