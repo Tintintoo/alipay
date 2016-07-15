@@ -8,10 +8,12 @@ AV.Cloud.define('getServerTime', function(request, response)
 {
   response.success(new Date());
 });
+
 //获取服务器时间 秒数
-AV.Cloud.define('getServerTimeSec’, function(request, response) 
+AV.Cloud.define('getTimeSecond’, function(request, response) 
 {
-  response.success(Date.now()/1000);
+var nDate = new Date();
+response.success(nDate.now()/1000);
 });
 
 //支付二次检测
