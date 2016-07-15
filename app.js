@@ -4,9 +4,6 @@ var bodyParser = require('body-parser');
 
 var cloud = require('./cloud');
 var alipay = require('./routes/pay');
-var WXPay = require('./lib/wxpay');
-
-WXPay.mix('Util', require('./lib/util'));
 
 var app = express();
 
@@ -14,7 +11,6 @@ app.use(express.static('public'));
 
 // 加载云代码方法
 app.use(cloud);
-app.use(wxpay);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
