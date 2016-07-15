@@ -12,8 +12,8 @@ AV.Cloud.define('getServerTime', function(request, response)
 //获取服务器时间 秒数
 AV.Cloud.define('getTimeSecond', function(request, response) 
 {
-var date = new Date();
-response.success(date.getTime());
+var nDate = new Date();
+response.success(nDate.now()/1000);
 });
 
 //支付二次检测
