@@ -1,5 +1,5 @@
 var AV = require('leanengine');
-var xml2js = require('xml2js');
+
 /**
  * 一个简单的云代码方法
  */
@@ -12,11 +12,30 @@ AV.Cloud.define('getServerTime', function(request, response)
 //获取服务器时间 秒数
 AV.Cloud.define('getTimeSecond', function(request, response) 
 {
-var nDate = new Date();
-response.success(nDate.now()/1000);
+var date = new Date();
+response.success(date.getTime());
 });
 
 //支付二次检测
+AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
+{
+  AV.Cloud.httpRequest({
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json'
+  },
+  url: 'http://www.weixin.qq.com/wxpay/pay.php',
+  body: request.params.receiptdata,
+  success: function(httpResponse) {
+    console.log('Request succ ' + httpResponse.text);
+    response.success(httpResponse.text);
+  },
+  error: function(httpResponse) {
+    console.error('Request failed with response code ' + httpResponse.status);
+  }
+});
+});
+
 AV.Cloud.define('payCheck', function(request, response)
 {
   AV.Cloud.httpRequest({
@@ -35,29 +54,6 @@ AV.Cloud.define('payCheck', function(request, response)
   }
 });
 });
-
-//微信统一下单
-AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
-{
-    var builder = new xml2js.Builder();
-    AV.Cloud.httpRequest({
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json'
-  },
-  url: 'https://api.mch.weixin.qq.com/pay/unifiedorder' ,
-  body: request.params.receiptdata,
-  success: function(httpResponse) {
-    console.log('Request succ ' + httpResponse.text);
-    response.success(httpResponse.text);
-  },
-  error: function(httpResponse) {
-    console.error('Request failed with response code ' + httpResponse.status);
-  }
-});
-});
-
-
 
 AV.Cloud.define('clearQD', function(request, response) {
 // 知道 objectId，创建 AVObject
