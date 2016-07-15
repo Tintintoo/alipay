@@ -45,7 +45,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
   headers: {
     'Content-Type': 'application/json'
   },
-  url: "https://api.mch.weixin.qq.com/pay/unifiedorder" ,
+  url: 'https://api.mch.weixin.qq.com/pay/unifiedorder' ,
   body: request.params.receiptdata,
   success: function(httpResponse) {
     console.log('Request succ ' + httpResponse.text);
