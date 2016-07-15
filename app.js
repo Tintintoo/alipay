@@ -4,9 +4,9 @@ var bodyParser = require('body-parser');
 
 var cloud = require('./cloud');
 var alipay = require('./routes/pay');
-var wxpay = require('./lib/wxpay');
+var WXPay = require('./lib/wxpay');
 
-wxpay.mix('Util', require('./lib/util'));
+WXPay.mix('Util', require('./lib/util'));
 
 var app = express();
 
