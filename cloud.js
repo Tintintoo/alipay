@@ -1,5 +1,5 @@
 var AV = require('leanengine');
-var xml2js = require('xml2js');
+//var xml2js = require('xml2js');
 /**
  * 一个简单的云代码方法
  */
@@ -37,16 +37,16 @@ AV.Cloud.define('payCheck', function(request, response)
 });
 
 //微信统一下单
-AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
+/*AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 {
-    var builder = new xml2js.Builder();
+    //var builder = new xml2js.Builder();
     AV.Cloud.httpRequest({
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
   },
   url: "https://api.mch.weixin.qq.com/pay/unifiedorder" ,
-  body: builder.buildObject(request.params.receiptdata),
+  body: request.params.receiptdata,
   success: function(httpResponse) {
     console.log('Request succ ' + httpResponse.text);
     response.success(httpResponse.text);
@@ -55,7 +55,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
     console.error('Request failed with response code ' + httpResponse.status);
   }
 });
-});
+});*/
 
 
 
