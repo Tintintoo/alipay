@@ -1,5 +1,4 @@
 var AV = require('leanengine');
-var WXPay = require("weixin");
 
 /**
  * 一个简单的云代码方法
@@ -18,27 +17,6 @@ response.success(date.getTime());
 });
 
 //支付二次检测
-AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
-{
-var wxpay = WXPay({
-    appid: 'xxxxxxxx',
-    mch_id: '1234567890',
-    partner_key: 'xxxxxxxxxxxxxxxxx', //微信商户平台API密钥
-    pfx: fs.readFileSync('./wxpay_cert.p12'), //微信商户平台证书
-});
-wxpay.createUnifiedOrder({
-    body: '扫码支付测试',
-    out_trade_no: '20140703'+Math.random().toString().substr(2, 10),
-    total_fee: 1,
-    spbill_create_ip: '192.168.2.210',
-    notify_url: 'http://wxpay_notify_url',
-    trade_type: 'NATIVE',
-    product_id: '1234567890'
-}, function(err, result){
-    console.log(result);
-});
-});
-
 AV.Cloud.define('payCheck', function(request, response)
 {
   AV.Cloud.httpRequest({
@@ -57,6 +35,7 @@ AV.Cloud.define('payCheck', function(request, response)
   }
 });
 });
+
 
 AV.Cloud.define('clearQD', function(request, response) {
 // 知道 objectId，创建 AVObject
