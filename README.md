@@ -1,87 +1,137 @@
-# 使用云代码接入支付宝的示例
+# weixin-pay
+微信支付 for node.js
 
-## 了解支付宝「即时到账收款」
+[![npm version](https://badge.fury.io/js/weixin-pay.svg)](http://badge.fury.io/js/weixin-pay)
 
-在尝试该项目之前，你需要了解支付宝「即时到账收款」这个功能：
-
-* 相关的介绍在这里：https://b.alipay.com/order/productDetail.htm?productId=2012111200373124
-* 确认自己有「企业支付宝账号（不含个体工商户）」
-* 了解整个流程是什么样子的
-
-然后就可以继续了。
-
-## 安装
-
-### 下载代码：
-
+## Installation
 ```
-git clone git@github.com:leancloud/cloud-code-alipay.git
+npm install weixin-pay
 ```
 
-### 修改支付宝相关的配置 `config/alipay.json`
+## Usage
 
-```
-{
-  "sign_type": "MD5",
-  "alipay_gateway": "https://mapi.alipay.com/gateway.do?",
-  "https_verify_url": "https://mapi.alipay.com/gateway.do?service=notify_verify&",
-  "partner": "2088000000000000",
-  "key": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-  "notify_url": "http://xxx.avosapps.com/pay/notify",
-  "return_url": "http://xxx.avosapps.com/pay/return"
-}
-```
-* alipay_gateway: 支付宝网关，一般情况默认即可。
-* https_verify_url: 支付宝回调验证 url，一般情况默认即可。
-* partner: 合作者身份（PID），2088 开头的 16 位数字，可以在支付宝网站查找: https://b.alipay.com/order/pidAndKey.htm
-* key: 安全校验码，数字加字母的字符串，可以在支付宝网站查找: https://b.alipay.com/order/pidAndKey.htm
-* notify_url: 支付宝异步通知 url，二级域名根据 LeanEngine 配置而定。
-* return_url: 支付宝同步通知 url，二级域名根据 LeanEngine 配置而定。
+创建统一支付订单
+```js
+var WXPay = require('weixin-pay');
 
-### 部署
+var wxpay = WXPay({
+	appid: 'xxxxxxxx',
+	mch_id: '1234567890',
+	partner_key: 'xxxxxxxxxxxxxxxxx', //微信商户平台API密钥
+	pfx: fs.readFileSync('./wxpay_cert.p12'), //微信商户平台证书
+});
 
-配置 LeanEngine appId 和 appKey
-
-```
-avoscloud app add <projectName> <appId>
+wxpay.createUnifiedOrder({
+	body: '扫码支付测试',
+	out_trade_no: '20140703'+Math.random().toString().substr(2, 10),
+	total_fee: 1,
+	spbill_create_ip: '192.168.2.210',
+	notify_url: 'http://wxpay_notify_url',
+	trade_type: 'NATIVE',
+	product_id: '1234567890'
+}, function(err, result){
+	console.log(result);
+});
 ```
 
-切换目标应用
+查询订单
+```js
+// 通过微信订单号查
+wxpay.queryOrder({ transaction_id:"xxxxxx" }, function(err, order){
+	console.log(order);
+});
 
+// 通过商户订单号查
+wxpay.queryOrder({ out_trade_no:"xxxxxx" }, function(err, order){
+	console.log(order);
+});
 ```
-avoscloud checkout <projectName>
+
+关闭订单
+```js
+wxpay.closeOrder({ out_trade_no:"xxxxxx"}, function(err, result){
+	console.log(result);
+});
+```
+退款接口
+```js
+var params = {
+	appid: 'xxxxxxxx',
+	mch_id: '1234567890',
+    op_user_id: '商户号即可',
+    out_refund_no: '20140703'+Math.random().toString().substr(2, 10),
+    total_fee: '1', //原支付金额
+    refund_fee: '1', //退款金额
+    transaction_id: '微信订单号'
+};
+
+wxpay.refund(params, function(err, result){
+    console.log('refund', arguments);
+});
 ```
 
-部署应用到测试环境和生产环境
+### 原生支付 (NATIVE)
 
+#### 模式一
+
+提供一个生成支付二维码链接的函数，把url生成二维码给用户扫。
+
+```js
+var url = wxpay.createMerchantPrepayUrl({ product_id: '123456' });
 ```
-avoscloud deploy && avoslcoud publish
+
+商户后台收到微信的回调之后，调用 createUnifiedOrder() 生成预支付交易单，将结果的XML数据返回给微信。
+
+[什么是模式一？](http://pay.weixin.qq.com/wiki/doc/api/native.php?chapter=6_4)
+
+#### 模式二
+
+直接调用 createUnifiedOrder() 函数生成预支付交易单，将结果中的 code_url 生成二维码给用户扫。
+
+[什么是模式二？](http://pay.weixin.qq.com/wiki/doc/api/native.php?chapter=6_5)
+
+### 公众号支付 (JS API)
+
+生成JS API支付参数，发给页面
+```js
+wxpay.getBrandWCPayRequestParams({
+	openid: '微信用户 openid',
+	body: '公众号支付测试',
+    detail: '公众号支付测试',
+	out_trade_no: '20150331'+Math.random().toString().substr(2, 10),
+	total_fee: 1,
+	spbill_create_ip: '192.168.2.210',
+	notify_url: 'http://wxpay_notify_url'
+}, function(err, result){
+	// in express
+    res.render('wxpay/jsapi', { payargs:result })
+});
 ```
 
-**提示**: 过程中可能会提示输入 masterKey。
+网页调用参数（以ejs为例）
+```js
+WeixinJSBridge.invoke(
+	"getBrandWCPayRequest", <%-JSON.stringify(payargs)%>, function(res){
+		if(res.err_msg == "get_brand_wcpay_request:ok" ) {
+    		// success
+    	}
+});
+```
 
-如果没有错误，请打开浏览器，根据自己的二级域名键入网址： `http://<yourPath>.avosapps.com`
+### 中间件
 
-如果看到「支付宝即时到账交易接口」的页面，恭喜你，部署成功！
+商户服务端处理微信的回调（express为例）
+```js
+// 原生支付回调
+router.use('/wxpay/native/callback', wxpay.useWXCallback(function(msg, req, res, next){
+	// msg: 微信回调发送的数据
+}));
 
-## 感受一下
+// 支付结果异步通知
+router.use('/wxpay/notify', wxpay.useWXCallback(function(msg, req, res, next){
+	// 处理商户业务逻辑
 
-1. 在「支付宝即时到账交易接口」的测试页面，输入相关信息。**注意**：「卖家支付宝用户号」需要和「partner」一致；金额可以输入 0.01 (表示支付 1 分钱)来进行尝试。输入完成后点击确认。
-2. 你将看到跳转到支付宝页面，输入自己的支付宝账号和支付密码等完成支付。
-3. 支付完成后会跳转回我们自己的应用页面，并显示 `验证结果：true`。支付流程结束。你可以到后台日志中看到支付宝的回调。当然，你的 1 分钱也转到了对应的卖家账户 ;)
-
-## 开发相关
-
-### 文件说明
-
-* `routes/pay.js`: 支付相关请求路由。
-* `utils/alipay.js`: 支付宝相关签名验证，生成跳转等逻辑。
-
-### 路由信息
-
-* `GET /`: 静态首页 `public/index.html`。
-* `POST /pay`: 接受表单信息、签名，并准备跳转到支付宝。
-* `GET /pay/return`: 等待支付宝同步回调，并验证调用方是否真正来自支付宝。
-* `POST /pay/notify`:等待支付宝异步回调，并验证调用方是否真正来自支付宝。
-
-
+    // res.success() 向微信返回处理成功信息，res.fail()返回失败信息。
+    res.success();
+}));
+```
