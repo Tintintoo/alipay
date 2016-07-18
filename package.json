@@ -8,6 +8,7 @@
     "debug": "^2.1.1",
     "express": "4.12.3",
     "leanengine": "^0.1.4",
+    "weixin": "^1.1.7",
     "request": "^2.58.0"
   }
 }

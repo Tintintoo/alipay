@@ -22,7 +22,8 @@ router.post('/', function(req, res) {
   res.send(html);
 });
 
-router.get('/return', function(req, res) {
+router.get('/return', function(req, res) 
+{
   console.log('return query: ', req.query);
   alipay.verify(req.query, function(err, result) {
     console.log('result: ', err, result);

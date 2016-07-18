@@ -5,7 +5,8 @@ var request = require('request');
 
 var config = require('../config/alipay.json');
 
-var defaultParams = {
+var defaultParams = 
+{
   service: 'create_direct_pay_by_user',
   partner: config.partner,
   '_input_charset': 'utf-8',
@@ -16,7 +17,9 @@ var defaultParams = {
 };
 
 // 生成及时到账交易请求 html
-exports.getDirectPayReqHtml = function(params, strMethod) {
+exports.getDirectPayReqHtml = function(params, strMethod) 
+{
+  debugger
   var finalParams = JSON.parse(JSON.stringify(defaultParams));
   for (var k in params) {
     finalParams[k] = params[k];

@@ -1,5 +1,4 @@
 var AV = require('leanengine');
-
 /**
  * 一个简单的云代码方法
  */
@@ -16,7 +15,13 @@ var date = new Date();
 response.success(date.getTime());
 });
 
-//支付二次检测
+//获得支付宝签名
+AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
+{
+  //var wxpay = AV.weixin.WXPay();
+  AV.weixin.createUnifiedOrder(request.receiptdata);
+});
+
 AV.Cloud.define('payCheck', function(request, response)
 {
   AV.Cloud.httpRequest({
@@ -35,7 +40,6 @@ AV.Cloud.define('payCheck', function(request, response)
   }
 });
 });
-
 
 AV.Cloud.define('clearQD', function(request, response) {
 // 知道 objectId，创建 AVObject
