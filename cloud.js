@@ -19,7 +19,7 @@ response.success(date.getTime());
 AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 {
   //var wxpay = AV.weixin.WXPay();
-  AV.weixin.createUnifiedOrder(request.receiptdata);
+  AV.weixin.WXPay().createUnifiedOrder(request.receiptdata);
 });
 
 AV.Cloud.define('payCheck', function(request, response)

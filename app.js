@@ -3,6 +3,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 
 var cloud = require('./cloud');
+
 var weixin = require('./lib/wxpay');
 weixin.mix('Util', require('./lib/util'));
 
