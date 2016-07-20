@@ -19,7 +19,7 @@ var defaultParams =
 // 生成及时到账交易请求 html
 exports.getDirectPayReqHtml = function(params, strMethod) 
 {
-  debugger
+  console.log("html : ");
   var finalParams = JSON.parse(JSON.stringify(defaultParams));
   for (var k in params) {
     finalParams[k] = params[k];

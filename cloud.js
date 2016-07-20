@@ -1,4 +1,7 @@
 var AV = require('leanengine');
+var WXPay = require('./lib/wxpay');
+var util = require('./lib/util');
+
 /**
  * 一个简单的云代码方法
  */
@@ -12,14 +15,167 @@ AV.Cloud.define('getServerTime', function(request, response)
 AV.Cloud.define('getTimeSecond', function(request, response) 
 {
 var date = new Date();
-response.success(date.getTime());
+response.success(date.getTime()/1000);
 });
 
-//获得支付宝签名
+//获取签名
+AV.Cloud.define('getWXPaySign', function(request, response){
+  var WXPay = require('./lib/wxpay');
+  var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
+  console.log(request.params);
+  var sign = wxpay.sign(request.params);
+  console.log(sign);
+  response.success(sign);
+})
+
+//统一下单
 AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 {
-  //var wxpay = AV.weixin.WXPay();
-  AV.weixin.WXPay().createUnifiedOrder(request.receiptdata);
+  var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
+  //客户端IP
+  var clientIP = request.meta.remoteAddress;
+  //request.params.spbill_create_ip = clientIP;
+  //request.params.notify_url = "http://asplp.leanapps.cn/pay";
+  var objectid = request.params.objectid;
+  var userid = request.params.userid;
+  var fee = 0;
+  if (objectid == 1) 
+  {
+    fee = 1;
+  }
+  else
+  {
+    response.error("参数错误!");
+  }
+  var date = new Date();
+  var orderData = 
+  {
+    appid:'wxf3633e02a28d60f0',
+    body:'有朋充值',
+    mch_id:"1364004502",
+    total_fee:fee,
+    notify_url:'https://stg-asplp.leanapp.cn/pay',
+    out_trade_no: Math.floor((date.getTime()+Math.random())*1000).toString(),
+    nonce_str:util.generateNonceString(),
+    attach:userid.toString(), 
+    spbill_create_ip : clientIP,
+    trade_type:'APP'
+  }
+
+  wxpay.createUnifiedOrder(orderData, function(err, result)
+  {
+    //response.success(result);
+    if(result.return_code == 'SUCCESS')
+    {
+      
+      result.timestamp = date.getTime()/1000;
+      var retData = {
+        appid: 'wxf3633e02a28d60f0',
+        noncestr: result.nonce_str,
+        partnerid: '1364004502',
+        prepayid: result.prepay_id,
+        timestamp: parseInt(date.getTime()/1000),
+        package: 'Sign=WXPay',
+        sign: ''
+      }
+      retData.sign = wxpay.sign(retData);
+      //console.log(retData);
+      //返回预付单号
+      response.success(retData);
+      //写入数据库
+      var WeChatOrder = AV.Object.extend('wechatOrder');
+      var order = new WeChatOrder();
+      //记录订单号
+      order.set('tradeNo', orderData.out_trade_no);
+      //记录用户id
+      order.set('userID', userid);
+      //记录订单状态 0-下单
+      order.set('orderState', 0);
+      //记录购买物品
+      order.set('object', objectid);
+      order.save();
+    }
+    else
+    {
+      response.error(result.return_msg);
+    }
+    //console.log("统一下单结果:",result);
+});
+});
+
+AV.Cloud.define('queryWeChatOrder',function(request, response)
+{
+  var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
+   var queryData = {
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    out_trade_no: request.params.out_trade_no,
+    nonce_str:util.generateNonceString()
+   }
+   wxpay.queryOrder(queryData, function(err, result)
+  {
+    //response.success(result);
+    if(result.return_code == 'SUCCESS')
+    {
+      if(result.result_code == 'SUCCESS')
+      {
+        if(result.trade_state == 'SUCCESS')
+        {
+          var query = new AV.Query('wechatOrder');
+          query.equalTo('tradeNo', queryData.out_trade_no);
+          query.first().then(function (data)
+            {
+                var state = data.get('orderState');
+                if(state == 0)//支付成功未做处理
+                {
+                  data.set('orderState', 1);//成功处理
+                  data.save();
+                  //此时需要做处理,根据objectID更新用户数据
+                  var oItem = data.get('object');
+                  query = new AV.Query('chatUsers');
+                  query.equalTo('userID', data.get('userID'));
+                  query.first().then(function(data)
+                    {
+                      data.increment('Diamond', 100);
+                      data.save();
+                      response.success('充值成功!');
+                    });
+                }
+            }, function (error) 
+            {
+              response.error(error);
+            }
+          );
+        }
+        else
+        {
+          reponse.error(result.trade_state);
+        }
+      }
+      else
+      {
+        reponse.error(result.err_code_des);
+      }
+    }
+    else
+    {
+      response.error(result.return_msg);
+    }
+    //console.log("统一下单结果:",result);
+});
+
 });
 
 AV.Cloud.define('payCheck', function(request, response)
