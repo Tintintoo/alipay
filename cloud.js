@@ -14,8 +14,8 @@ AV.Cloud.define('getServerTime', function(request, response)
 //获取服务器时间 秒数
 AV.Cloud.define('getTimeSecond', function(request, response) 
 {
-var date = new Date();
-response.success(date.getTime()/1000);
+  var date = new Date().getTime()/1000;
+  response.success(date);
 });
 
 //获取签名
@@ -44,25 +44,40 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
   var clientIP = request.meta.remoteAddress;
   //request.params.spbill_create_ip = clientIP;
   //request.params.notify_url = "http://asplp.leanapps.cn/pay";
-  var objectid = request.params.objectid;
+  var goldNum = request.params.goldNum;
+  var diamond = request.params.Diamond;
   var userid = request.params.userid;
-  var fee = 0;
-  if (objectid == 1) 
+  //计算实际支付金额
+  var fee = goldNum + diamond*100;
+  if(fee <= 0)
   {
-    fee = 1;
+    response.error('支付参数错误!');
+    return;
+  }
+  else if(fee < 30000)
+  {
+    fee *= 0.8;
   }
   else
   {
-    response.error("参数错误!");
+    fee *= 0.5;
   }
+  var notifyurl = 'http://asplp.leanapp.cn/pay';
+  if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+  {
+    notifyurl ='http://stg-asplp.leanapp.cn/pay';
+    //fee = 1;
+  }
+  //console.log(notifyurl);
   var date = new Date();
+
   var orderData = 
   {
     appid:'wxf3633e02a28d60f0',
     body:'有朋充值',
     mch_id:"1364004502",
     total_fee:fee,
-    notify_url:'https://stg-asplp.leanapp.cn/pay',
+    notify_url:notifyurl,
     out_trade_no: Math.floor((date.getTime()+Math.random())*1000).toString(),
     nonce_str:util.generateNonceString(),
     attach:userid.toString(), 
@@ -100,7 +115,8 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
       //记录订单状态 0-下单
       order.set('orderState', 0);
       //记录购买物品
-      order.set('object', objectid);
+      order.set('goldNum', goldNum);
+      order.set('Diamond', diamond);
       order.save();
     }
     else
@@ -140,16 +156,63 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
                 var state = data.get('orderState');
                 if(state == 0)//支付成功未做处理
                 {
-                  data.set('orderState', 1);//成功处理
+                  //成功处理,看看是否会有人多次支付
+                  data.increment('orderState', 1);
                   data.save();
                   //此时需要做处理,根据objectID更新用户数据
-                  var oItem = data.get('object');
+                  var gold = data.get('goldNum');
+                  var diamond = data.get('Diamond');
+                  //购买的价值
+                  var price = gold/100 + diamond;
+                  if (price < 300) 
+                  {
+                    price *= 0.8;
+                  }
+                  else
+                  {
+                    price *= 0.5;
+                  }
                   query = new AV.Query('chatUsers');
                   query.equalTo('userID', data.get('userID'));
-                  query.first().then(function(data)
+                  query.first().then(function(avobj)
                     {
-                      data.increment('Diamond', 100);
-                      data.save();
+                      var goldMax = gold;
+                      
+                      if(diamond > 0)
+                      {
+                        gold += diamond * 100;
+                      }
+                      var vipType = avobj.get("VIPType");
+                      if (vipType > 0 && price < 300)//购买在300以下 
+                      {
+                          var tip = [1.0,1.05,1.08,1.12,1.18,1.25,1.33,1.42,1.52,1.63];
+                          gold *= tip[vipType];
+                          diamond *= tip[vipType];
+                      }
+                      //写一下充值记录
+                      var rechargeLog = AV.Object.extend('rechargeLog');
+                      var log = new rechargeLog();
+                      log.set('beforeGold', avobj.get('goldNum'));
+                      log.set('beforeGoldMax', avobj.get('goldMax'));
+                      log.set('beforeDiamond', avobj.get('Diamond'));
+                      //写入数据库
+                      avobj.increment('goldMax', parseInt(goldMax));
+                      avobj.increment('Diamond', parseInt(diamond));
+                      avobj.increment('goldNum',parseInt(gold));
+                      avobj.increment('BonusPoint', price);
+                      avobj.save();
+
+                      //记录订单号
+                      log.set('tradeNo', queryData.out_trade_no);
+                      //记录用户id
+                      log.set('userID', avobj.get('userID'));
+                      //记录购买物品
+                      log.set('goldMax', goldMax);
+                      log.set('goldNum', gold);
+                      log.set('Diamond', diamond);
+                      log.set('vipType', vipType);
+                      log.set('money', price);//实际支付金额
+                      log.save();
                       response.success('充值成功!');
                     });
                 }
@@ -161,12 +224,12 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
         }
         else
         {
-          reponse.error(result.trade_state);
+          response.error(result.trade_state);
         }
       }
       else
       {
-        reponse.error(result.err_code_des);
+        response.error(result.err_code_des);
       }
     }
     else

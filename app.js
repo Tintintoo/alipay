@@ -30,9 +30,6 @@ app.get('/pay/*', wxpay.useWXCallback());
 // 生成一个异常让后面的 err handler 捕获
 app.use(function(req, res, next) 
 {
-  //console.log(req.params);
-  //console.log(req);
-  //console.log(res);
   var err = new Error('Not Found');
   err.status = 404;
   next(err);
