@@ -3,6 +3,7 @@ var express = require('express');
 var bodyParser = require('body-parser');
 var WXPay = require("./lib/wxpay");
 var cloud = require('./cloud');
+var piaoliuping = require('./piaoliuping');
 
 var app = express();
 
@@ -16,6 +17,7 @@ var wxpay = WXPay({
 
 // 加载云代码方法
 app.use(cloud);
+app.use(piaoliuping);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));

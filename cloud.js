@@ -66,7 +66,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
   if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   {
     notifyurl ='http://stg-asplp.leanapp.cn/pay';
-    //fee = 1;
+    fee = 1;
   }
   //console.log(notifyurl);
   var date = new Date();
@@ -127,6 +127,26 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 });
 });
 
+AV.Cloud.define('beginWedding',function(request, response)
+{
+  var nNow = parseInt(new Date().getTime()/1000);
+  var query = new AV.Query('chatUsers');
+  query.equalTo('userID', request.params.userid);
+  query.first().then(function (data)
+  {
+    if (request.params.weddingtype == 0) {
+      data.increment("goldNum", -100000);
+    }
+    else
+    {
+      data.increment("goldNum", -990000);
+    }
+    data.save().then(function(error)
+    {
+
+    });
+  });
+});
 AV.Cloud.define('queryWeChatOrder',function(request, response)
 {
   var wxpay = WXPay({
