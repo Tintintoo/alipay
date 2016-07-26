@@ -1,10 +1,14 @@
 'use strict';
 var router = require('express').Router();
 var alipay = require('../utils/alipay');
+var WXPay = require("../lib/wxpay");
+var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
 
-router.post('/', function(req, res) {
-  console.log("paynotiy");
-});
+router.post('/', wxpay.useWXCallback());
 
 router.get('/return', function(req, res) 
 {

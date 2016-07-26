@@ -1,25 +1,26 @@
 var AV = require('leanengine');
 var redis = require('redis');
-var reqCount ={'1,6':1};
+var reqCount = require('./reqCount');
+
 //创建赌场房间
 AV.Cloud.define('createGameRoom', function(request, response) 
 {
 	//并发控制
 	var key = "1," + request.params.userID;
-	if(reqCount.key)
+	if(reqCount().key)
 	{
-		if(reqCount.key > 0)
+		if(reqCount().key > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount.key = 1;
+	reqCount().key = 1;
 
     var gambling = request.params.gambling;
 	if(gambling <= 0)
 	{
 		response.error('参数错误!');
-		delete reqCount.key;
+		delete reqCount().key;
 		return;
 	}
 	var place = request.params.place;
@@ -32,7 +33,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(data.get('goldNum') < gambling)
     		{
     			response.error('金币不足!');
-    			delete reqCount.key;
+    			delete reqCount().key;
     			return;
     		}
     		data.increment('goldNum', 0-gambling);
@@ -42,7 +43,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(data.get('Diamond') < gambling)
     		{
     			response.error('钻石不足!');
-    			delete reqCount.key;
+    			delete reqCount().key;
     			return;
     		}
     		data.increment('Diamond', 0-gambling);
@@ -60,11 +61,11 @@ AV.Cloud.define('createGameRoom', function(request, response)
     			response.success('创建成功!');
     			console.log('创建房间',request.params);
     			//并发控制解除
-    			delete reqCount.key;
+    			delete reqCount().key;
     		},function(error)
     		{
     			//并发控制解除
-    			delete reqCount.key;
+    			delete reqCount().key;
     		});
     });
     
@@ -75,14 +76,14 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 {
 	//并发控制,根据room来控制,一个room只能发起一次请求
 	var key = "gameRoom," + request.params.roomID;
-	if(reqCount.key)
+	if(reqCount().key)
 	{
-		if(reqCount.key > 0)
+		if(reqCount().key > 0)
 		{
 			return response.error("晚了一步!");
 		}
 	}
-	reqCount.key = 1;
+	reqCount().key = 1;
         
 	var query = new AV.Query('gameRoom');
 	query.equalTo('roomID', request.params.roomID);
@@ -92,11 +93,11 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	}).then(function(success)
 	{
 		response.success('挑战成功');
-		delete reqCount.key;
+		delete reqCount().key;
 	}).catch(function(error) 
 	{
 		response.error(error);
-		delete reqCount.key;
+		delete reqCount().key;
   	});
 });
 
@@ -111,15 +112,15 @@ AV.Cloud.define('upItem', function(request, response)
 	}
 	//并发控制
 	var key = "upItem," + request.params.userID;
-	console.log(reqCount.key);
-	if(reqCount.key)
+	console.log(reqCount().key);
+	if(reqCount().key)
 	{
-		if(reqCount.key > 0)
+		if(reqCount().key > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount.key = 1;
+	reqCount().key = 1;
 
 	var query = new AV.Query('package');
 	query.equalTo('userID', request.params.userID);
@@ -152,12 +153,12 @@ AV.Cloud.define('upItem', function(request, response)
 		return obj.save();
 	}).then(function(obj)
 	{
-		delete reqCount.key;
+		delete reqCount().key;
 		return response.success(obj.get('auctionID'));
 	}).catch(function(error)
 	{
 		console.log(error);
-		delete reqCount.key;
+		delete reqCount().key;
 		return response.success('上架失败!');
 	});
 });
@@ -167,14 +168,14 @@ AV.Cloud.define('buyItem', function(request, response)
 {
 	var reqData = request.params;
 	var key = "auction," + reqData.auctionID;
-	if(reqCount.key)
+	if(reqCount().key)
 	{
-		if(reqCount.key > 0)
+		if(reqCount().key > 0)
 		{
 			return response.error("该物品已经下架或者被买走了!");
 		}
 	}
-	reqCount.key = 1;
+	reqCount().key = 1;
 
 	var query = new AV.Query('auctionItems');
 	query.equalTo('auctionID', reqData.auctionID);
@@ -246,11 +247,11 @@ AV.Cloud.define('buyItem', function(request, response)
 	}).then(function(success)
 	{
 		response.success('购买成功!');
-		delete reqCount.key;
+		delete reqCount().key;
 	}).catch(function(error)
 	{
 		response.error(error);
-		delete reqCount.key;
+		delete reqCount().key;
 	});
 });
 
@@ -280,15 +281,15 @@ AV.Cloud.define('silverChange', function(request, response)
 	}
 	//并发控制
 	var key = "silverChange," + request.params.userID;
-	console.log(reqCount.key);
-	if(reqCount.key)
+	console.log(reqCount().key);
+	if(reqCount().key)
 	{
-		if(reqCount.key > 0)
+		if(reqCount().key > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount.key = 1;
+	reqCount().key = 1;
 	var query = new AV.Query('chatUsers');
 	query.equalTo('userID', request.params.userID);
 	query.first().then(function(data)
@@ -310,13 +311,13 @@ AV.Cloud.define('silverChange', function(request, response)
 	{
 		//console.log("success");
 		var retData = {goldNum:data.get('goldNum'), silverCoin:data.get("silverCoin")};
-		delete reqCount.key;
+		delete reqCount().key;
 		return response.success(retData);
 
 	}).catch(function(error)
 	{
 		console.log("deal error");
-		delete reqCount.key;
+		delete reqCount().key;
 		return response.error('金币不足!');
 	});
 });

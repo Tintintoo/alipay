@@ -26,7 +26,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 
 //微信支付返回
-app.get('/pay', wxpay.useWXCallback());
+app.use('/pay', require('./routes/pay'));
+//app.get('/pay', wxpay.useWXCallback());
 app.get('/pay/*', wxpay.useWXCallback());
 // 如果任何路由都没匹配到，则认为 404
 // 生成一个异常让后面的 err handler 捕获

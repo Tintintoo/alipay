@@ -1,7 +1,7 @@
 var AV = require('leanengine');
 var WXPay = require('./lib/wxpay');
 var util = require('./lib/util');
-
+//var reqCount = reqire('./reqCount');
 /**
  * 一个简单的云代码方法
  */
@@ -127,27 +127,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 });
 });
 
-AV.Cloud.define('beginWedding',function(request, response)
-{
-  var nNow = parseInt(new Date().getTime()/1000);
-  var query = new AV.Query('chatUsers');
-  query.equalTo('userID', request.params.userid);
-  query.first().then(function (data)
-  {
-    if (request.params.weddingtype == 0) {
-      data.increment("goldNum", -100000);
-    }
-    else
-    {
-      data.increment("goldNum", -990000);
-    }
-    data.save().then(function(error)
-    {
-
-    });
-  });
-});
-AV.Cloud.define('queryWeChatOrder',function(request, response)
+/*AV.Cloud.define('queryWeChatOrder',function(request, response)
 {
   var wxpay = WXPay({
     appid: 'wxf3633e02a28d60f0',
@@ -160,6 +140,14 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
     out_trade_no: request.params.out_trade_no,
     nonce_str:util.generateNonceString()
    }
+   var key = 'order,' + request.params.out_trade_no;
+   if(reqCount().key)
+   {
+      response.error('正在处理了,请稍后重试!');
+      return;
+   }
+   reqCount().key = 1;
+
    wxpay.queryOrder(queryData, function(err, result)
   {
     //response.success(result);
@@ -259,7 +247,7 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
     //console.log("统一下单结果:",result);
 });
 
-});
+});*/
 
 AV.Cloud.define('payCheck', function(request, response)
 {
