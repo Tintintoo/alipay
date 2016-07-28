@@ -1,7 +1,7 @@
 'use strict';
 var express = require('express');
 var bodyParser = require('body-parser');
-var WXPay = require("./lib/wxpay");
+
 var cloud = require('./cloud');
 var piaoliuping = require('./piaoliuping');
 
@@ -9,11 +9,7 @@ var app = express();
 
 app.use(express.static('public'));
 
-var wxpay = WXPay({
-    appid: 'wxf3633e02a28d60f0',
-    mch_id: '1364004502',
-    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
-  });
+
 
 // 加载云代码方法
 app.use(cloud);
@@ -28,7 +24,7 @@ app.use(bodyParser.urlencoded({ extended: false }));
 //微信支付返回
 app.use('/pay', require('./routes/pay'));
 //app.get('/pay', wxpay.useWXCallback());
-app.get('/pay/*', wxpay.useWXCallback());
+//app.get('/pay/*', wxpay.useWXCallback());
 // 如果任何路由都没匹配到，则认为 404
 // 生成一个异常让后面的 err handler 捕获
 app.use(function(req, res, next) 

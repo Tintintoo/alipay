@@ -89,6 +89,10 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	query.equalTo('roomID', request.params.roomID);
 	query.first().then(function(data)
 	{
+		if( !data)
+		{
+			return AV.Promise.error('There was an error.');
+		}
 		return data.destroy();
 	}).then(function(success)
 	{
@@ -143,6 +147,10 @@ AV.Cloud.define('upItem', function(request, response)
 		}
 	}).then(function(data)
 	{
+		 if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+  		{
+			console.log("写入拍卖数据");
+		}
 		var auctionItems = AV.Object.extend('auctionItems');
 		var obj = new auctionItems;
 		obj.set('ownerID', request.params.userID);
@@ -150,16 +158,19 @@ AV.Cloud.define('upItem', function(request, response)
 		obj.set('itemCount', request.params.itemCount);
 		obj.set('floorPrice', request.params.price);
 		obj.set('itemName', request.params.name);
+		obj.fetchWhenSave(true);
 		return obj.save();
 	}).then(function(obj)
 	{
 		delete reqCount().key;
-		return response.success(obj.get('auctionID'));
+		var auctionID = obj.get('auctionID');
+		console.log("auctionID:"+auctionID);
+		return response.success(auctionID);
 	}).catch(function(error)
 	{
 		console.log(error);
 		delete reqCount().key;
-		return response.success('上架失败!');
+		return response.error('上架失败!');
 	});
 });
 
@@ -189,37 +200,42 @@ AV.Cloud.define('buyItem', function(request, response)
 		reqData.price = data.get('floorPrice');
 		reqData.itemID = data.get('itemID');
 		reqData.itemCount = data.get('itemCount');
+		console.log("删除拍卖物品!");
 		return data.destroy();
 	}).then(function(success)
 	{
 		var query1 = new AV.Query('chatUsers');
-  		query1.greaterThanOrEqualTo('userID', reqData.buyer);
+  		query1.equalTo('userID', reqData.buyer);
 
   		var query2 = new AV.Query('chatUsers');
   		query2.equalTo('userID', reqData.owner);
 		var query = AV.Query.or(query1, query2);
+		console.log("orqueryerror");
 		return query.find();
 	}).then(function(results)
 	{
+		console.log('增加钻石和减少钻石!' + reqData.owner+","+reqData.buyer +"userCount:"+results.length);
 		if(reqData.owner == reqData.buyer)
 		{
-			return AV.Object.saveAll(results);
+			return AV.Promise.as('The good result.');
 		}
-		for (var i = results.lenth - 1; i >= 0; i--) 
+		for (var i = 0; i < results.length; i++)
 		{
 			var obj = results[i];
 			if(obj.get('userID') == reqData.owner)//收钱方
 			{
 				obj.increment('Diamond', reqData.price);
+				console.log('userID' + reqData.owner + "diamond:" + reqData.price);
 			}
 			else
 			{
 				if(obj.get('Diamond') < reqData.price)
 				{
 					response.error('钻石数量不足!');
-					return false;
+					return AV.Promise.error('钻石数量不足!');
 				}
 				obj.increment('Diamond', 0 - reqData.price);
+				console.log("userID" + obj.get('userID') + "diamond"+ obj.get('Diamond'));
 			}
 		}
 		return AV.Object.saveAll(results);
@@ -263,7 +279,7 @@ AV.Cloud.define('silverChange', function(request, response)
 	var silver =0;
 	if(request.params.silver)
 	{
-		if(request.params.silver <= 1000)
+		if(request.params.silver < 1000)
 		{
 			return response.error('银币不足!');
 		}
@@ -272,7 +288,7 @@ AV.Cloud.define('silverChange', function(request, response)
 	}
 	if(request.params.gold)
 	{
-		if(request.params.gold <= 100)
+		if(request.params.gold < 100)
 		{
 			return response.error('金币不足!');
 		}
@@ -319,6 +335,68 @@ AV.Cloud.define('silverChange', function(request, response)
 		console.log("deal error");
 		delete reqCount().key;
 		return response.error('金币不足!');
+	});
+});
+
+AV.Cloud.define('sealAccount', function(request, response) 
+{
+  var uuid = request.params.uuid;
+  var userid = request.params.userID;
+  var clientIP = request.meta.remoteAddress;
+  var query = new AV.Query('chatUsers');
+  query.equalTo('userID', userid);
+  query.first().then(function(data)
+  {
+  	if(!data)
+  	{
+  		return response.error('未查询到用户信息!');
+  	}
+  	var sealInfo = AV.Object.extend('sealInfo');
+  	var obj = new sealInfo();
+  	obj.set('UUID',uuid);
+  	obj.set('userID', userid);
+  	obj.set('openid', data.get('openid'));
+  	obj.set('phoneNum', data.get('MobilePhone'));
+  	obj.set('IP',clientIP);
+  	obj.save();
+  	return response.success('success');
+  },function(error)
+  {
+  		return response.error('未查询到用户信息!');
+  });
+  
+});
+
+AV.Cloud.define('checkAccount', function(request, response) 
+{
+	var uuid = request.params.uuid||'1234567';
+	var openid = request.params.openid||'1234567';
+	var phone = request.params.phone||'1234567';
+	var other = request.params.other||'123456';
+
+	var query1 = new AV.Query('sealInfo');
+  	query1.equalTo('UUID', uuid);
+
+  	var query2 = new AV.Query('sealInfo');
+  	query2.equalTo('openid', openid);
+
+  	var query3 = new AV.Query('sealInfo');
+  	query3.equalTo('phoneNum', phone);
+
+  	var query4 = new AV.Query('sealInfo');
+  	query4.equalTo('phoneNum', other);
+
+	var query = AV.Query.or(query1, query2,query3,query4);
+	query.find().then(function(results)
+	{
+		if(results.length == 0)
+		{
+			return response.error('未被封禁');
+		}
+		return response.success('该设备已经被封禁!');
+	},function(error)
+	{
+		return response.success('服务器查询出错!');
 	});
 });
 

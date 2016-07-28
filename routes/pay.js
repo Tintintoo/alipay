@@ -2,6 +2,7 @@
 var router = require('express').Router();
 var alipay = require('../utils/alipay');
 var WXPay = require("../lib/wxpay");
+
 var wxpay = WXPay({
     appid: 'wxf3633e02a28d60f0',
     mch_id: '1364004502',

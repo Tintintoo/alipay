@@ -17,6 +17,13 @@ AV.Cloud.define('getTimeSecond', function(request, response)
   var date = new Date().getTime()/1000;
   response.success(date);
 });
+AV.Cloud.define('getTimeSecond_BJ', function(request, response) 
+{
+  var date = new Date().getTime()/1000;
+  //转到北京时间
+  date += 3600 * 8;
+  response.success(date);
+});
 
 //获取签名
 AV.Cloud.define('getWXPaySign', function(request, response){
@@ -127,8 +134,14 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 });
 });
 
-/*AV.Cloud.define('queryWeChatOrder',function(request, response)
+//管理员功能,处理有些订单没有处理
+AV.Cloud.define('queryWeChatOrder',function(request, response)
 {
+  if (process.env.LEANCLOUD_APP_ENV != 'stage') 
+  {
+    response.error('这是管理功能,普通用户无法使用!');
+    return;
+  }
   var wxpay = WXPay({
     appid: 'wxf3633e02a28d60f0',
     mch_id: '1364004502',
@@ -140,6 +153,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
     out_trade_no: request.params.out_trade_no,
     nonce_str:util.generateNonceString()
    }
+
    var key = 'order,' + request.params.out_trade_no;
    if(reqCount().key)
    {
@@ -244,10 +258,9 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
     {
       response.error(result.return_msg);
     }
-    //console.log("统一下单结果:",result);
 });
 
-});*/
+});
 
 AV.Cloud.define('payCheck', function(request, response)
 {
