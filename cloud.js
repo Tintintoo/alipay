@@ -61,7 +61,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
     response.error('支付参数错误!');
     return;
   }
-  else if(fee < 30000)
+  else if(fee < 60000)
   {
     fee *= 0.8;
   }
@@ -73,7 +73,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
   if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   {
     notifyurl ='http://stg-asplp.leanapp.cn/pay';
-    fee = 1;
+    //fee = 1;
   }
   //console.log(notifyurl);
   var date = new Date();
@@ -124,6 +124,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
       //记录购买物品
       order.set('goldNum', goldNum);
       order.set('Diamond', diamond);
+      order.set('needFee', fee);
       order.save();
     }
     else
