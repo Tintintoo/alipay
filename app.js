@@ -21,10 +21,11 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 // 可以将一类的路由单独保存在一个文件中
-
+//app.use('/', require('./routes/index'));
+app.use('/dbtocache', require('./routes/dbtocache'));
+app.use('/pay', require('./routes/pay'));
 
 //微信支付返回
-app.use('/pay', require('./routes/pay'));
 //app.get('/pay', wxpay.useWXCallback());
 //app.get('/pay/*', wxpay.useWXCallback());
 // 如果任何路由都没匹配到，则认为 404

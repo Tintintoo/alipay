@@ -6,21 +6,23 @@ var reqCount = require('./reqCount');
 AV.Cloud.define('createGameRoom', function(request, response) 
 {
 	//并发控制
+	var req = reqCount();
 	var key = "1," + request.params.userID;
-	if(reqCount().key)
+	if(req[key])
 	{
-		if(reqCount().key > 0)
+		if(req[key] > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount().key = 1;
+	req[key] = 1;
 
     var gambling = request.params.gambling;
 	if(gambling <= 0)
 	{
 		response.error('参数错误!');
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 		return;
 	}
 	var place = request.params.place;
@@ -33,7 +35,9 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(data.get('goldNum') < gambling)
     		{
     			response.error('金币不足!');
-    			delete reqCount().key;
+    			//并发控制解除
+    			req[key] = 0;
+				delete req[key];
     			return;
     		}
     		data.increment('goldNum', 0-gambling);
@@ -43,7 +47,9 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(data.get('Diamond') < gambling)
     		{
     			response.error('钻石不足!');
-    			delete reqCount().key;
+    			//并发控制解除
+    			req[key] = 0;
+				delete req[key];
     			return;
     		}
     		data.increment('Diamond', 0-gambling);
@@ -61,11 +67,13 @@ AV.Cloud.define('createGameRoom', function(request, response)
     			response.success('创建成功!');
     			console.log('创建房间',request.params);
     			//并发控制解除
-    			delete reqCount().key;
+    			req[key] = 0;
+				delete req[key];
     		},function(error)
     		{
     			//并发控制解除
-    			delete reqCount().key;
+    			req[key] = 0;
+				delete req[key];
     		});
     });
     
@@ -75,15 +83,16 @@ AV.Cloud.define('createGameRoom', function(request, response)
 AV.Cloud.define('joinPetGameQueue', function(request, response)
 {
 	//并发控制,根据room来控制,一个room只能发起一次请求
+	var req = reqCount();
 	var key = "gameRoom," + request.params.roomID;
-	if(reqCount().key)
+	if(req[key])
 	{
-		if(reqCount().key > 0)
+		if(req[key] > 0)
 		{
 			return response.error("晚了一步!");
 		}
 	}
-	reqCount().key = 1;
+	req[key] = 1;
         
 	var query = new AV.Query('gameRoom');
 	query.equalTo('roomID', request.params.roomID);
@@ -97,11 +106,13 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	}).then(function(success)
 	{
 		response.success('挑战成功');
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 	}).catch(function(error) 
 	{
 		response.error(error);
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
   	});
 });
 
@@ -115,16 +126,17 @@ AV.Cloud.define('upItem', function(request, response)
 		return ;
 	}
 	//并发控制
+	var req = reqCount();
 	var key = "upItem," + request.params.userID;
 	console.log(reqCount().key);
-	if(reqCount().key)
+	if(req[key])
 	{
-		if(reqCount().key > 0)
+		if(req[key] > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount().key = 1;
+	req[key] = 1;
 
 	var query = new AV.Query('package');
 	query.equalTo('userID', request.params.userID);
@@ -162,14 +174,16 @@ AV.Cloud.define('upItem', function(request, response)
 		return obj.save();
 	}).then(function(obj)
 	{
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 		var auctionID = obj.get('auctionID');
 		console.log("auctionID:"+auctionID);
 		return response.success(auctionID);
 	}).catch(function(error)
 	{
 		console.log(error);
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 		return response.error('上架失败!');
 	});
 });
@@ -178,15 +192,17 @@ AV.Cloud.define('upItem', function(request, response)
 AV.Cloud.define('buyItem', function(request, response)
 {
 	var reqData = request.params;
+	//并发控制
 	var key = "auction," + reqData.auctionID;
-	if(reqCount().key)
+	var req = reqCount();
+	if(req[key])
 	{
-		if(reqCount().key > 0)
+		if(req[key] > 0)
 		{
 			return response.error("该物品已经下架或者被买走了!");
 		}
 	}
-	reqCount().key = 1;
+	req[key] = 1;
 
 	var query = new AV.Query('auctionItems');
 	query.equalTo('auctionID', reqData.auctionID);
@@ -263,11 +279,13 @@ AV.Cloud.define('buyItem', function(request, response)
 	}).then(function(success)
 	{
 		response.success('购买成功!');
-		delete reqCount().key;
+		req[key]= 0;
+		delete req[key];
 	}).catch(function(error)
 	{
 		response.error(error);
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 	});
 });
 
@@ -297,15 +315,16 @@ AV.Cloud.define('silverChange', function(request, response)
 	}
 	//并发控制
 	var key = "silverChange," + request.params.userID;
+	var req = reqCount();
 	console.log(reqCount().key);
-	if(reqCount().key)
+	if(req[key])
 	{
-		if(reqCount().key > 0)
+		if(req[key] > 0)
 		{
 			return response.error("请求过于频繁!");
 		}
 	}
-	reqCount().key = 1;
+	req[key] = 1;
 	var query = new AV.Query('chatUsers');
 	query.equalTo('userID', request.params.userID);
 	query.first().then(function(data)
@@ -327,13 +346,15 @@ AV.Cloud.define('silverChange', function(request, response)
 	{
 		//console.log("success");
 		var retData = {goldNum:data.get('goldNum'), silverCoin:data.get("silverCoin")};
-		delete reqCount().key;
+		req[key] = 0;
+		delete req[key];
 		return response.success(retData);
 
 	}).catch(function(error)
 	{
 		console.log("deal error");
-		delete reqCount().key;
+		req[key] =0;
+		delete req[key];
 		return response.error('金币不足!');
 	});
 });
@@ -343,9 +364,7 @@ AV.Cloud.define('sealAccount', function(request, response)
   var uuid = request.params.uuid;
   var userid = request.params.userID;
   var clientIP = request.meta.remoteAddress;
-  var query = new AV.Query('chatUsers');
-  query.equalTo('userID', userid);
-  query.first().then(function(data)
+  return new AV.Query('chatUsers').equalTo('userID', userid).first().then(function(data)
   {
   	if(!data)
   	{
@@ -386,8 +405,7 @@ AV.Cloud.define('checkAccount', function(request, response)
   	var query4 = new AV.Query('sealInfo');
   	query4.equalTo('phoneNum', other);
 
-	var query = AV.Query.or(query1, query2,query3,query4);
-	query.find().then(function(results)
+	new AV.Query.or(query1, query2,query3,query4).find().then(function(results)
 	{
 		if(results.length == 0)
 		{
@@ -399,5 +417,30 @@ AV.Cloud.define('checkAccount', function(request, response)
 		return response.success('服务器查询出错!');
 	});
 });
+AV.Cloud.define('petRankFight', function(request, response)
+{
+	var req = reqCount();
+	var key = "petRank:" + request.params.petID;
+	var key2 = 'petRank:' + request.params.otherID;
+	if((req[key] && req[key] > 0) ||(req[key2] && req[key2] > 0))
+	{
+		return response.error("请求过于频繁!");
+		
+	}
 
+	req[key] = 1;
+	req[key2] = 1;
+	return response.success('请求成功!');
+});
+AV.Cloud.define('clearPetRankFight',function(request, response)
+{
+	var req = reqCount();
+	var key = "petRank:" + request.params.petID;
+	var key2 = 'petRank:' + request.params.otherID;
+	req[key] = 0;
+	delete req[key];
+	req[key2] = 0;
+	delete req[key2];
+	response.success('请求成功!');
+});
 module.exports = AV.Cloud;
