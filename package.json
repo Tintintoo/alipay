@@ -13,6 +13,7 @@
     "MD5": "^1.2.1",
     "redis": "2.2.x",
     "xml2js": "^0.4.6",
-    "underscore": "^1.8.3"
+    "underscore": "^1.8.3",
+    "seedrandom":"2.4.2"
   }
 }

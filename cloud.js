@@ -6,6 +6,8 @@ var util = require('./lib/util');
  * 一个简单的云代码方法
  */
 //获取服务器时间
+var WeChatOrder = AV.Object.extend('wechatOrder');
+
 AV.Cloud.define('getServerTime', function(request, response) 
 {
   response.success(new Date());
@@ -23,6 +25,12 @@ AV.Cloud.define('getTimeSecond_BJ', function(request, response)
   //转到北京时间
   date += 3600 * 8;
   response.success(date);
+});
+AV.Cloud.define('getTimeYMD_BJ',function(request,response)
+{
+  var date = new Date();
+  response.success({'year':date.getFullYear(), 'month':date.getMonth()+1,'day':date.getDate(),'hour':date.getHours(),
+    'minute':date.getMinutes(),'second':date.getSeconds(),'timestamp':parseInt(date.getTime()/1000+28800)});
 });
 
 //获取签名
@@ -42,6 +50,8 @@ AV.Cloud.define('getWXPaySign', function(request, response){
 //统一下单
 AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
 {
+  //老的下单方式废弃
+  return response.error('Error');
   var wxpay = WXPay({
     appid: 'wxf3633e02a28d60f0',
     mch_id: '1364004502',
@@ -113,7 +123,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
       //返回预付单号
       response.success(retData);
       //写入数据库
-      var WeChatOrder = AV.Object.extend('wechatOrder');
+      
       var order = new WeChatOrder();
       //记录订单号
       order.set('tradeNo', orderData.out_trade_no);
@@ -124,7 +134,7 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
       //记录购买物品
       order.set('goldNum', goldNum);
       order.set('Diamond', diamond);
-      order.set('needFee', fee);
+      order.set('needFee', fee/100);
       order.save();
     }
     else
@@ -200,7 +210,6 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
                   query.first().then(function(avobj)
                     {
                       var goldMax = gold;
-                      
                       if(diamond > 0)
                       {
                         gold += diamond * 100;
@@ -213,7 +222,7 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
                           diamond *= tip[vipType];
                       }
                       //写一下充值记录
-                      var rechargeLog = AV.Object.extend('rechargeLog');
+                      
                       var log = new rechargeLog();
                       log.set('beforeGold', avobj.get('goldNum'));
                       log.set('beforeGoldMax', avobj.get('goldMax'));
@@ -700,6 +709,89 @@ query.find({
   error: function(error) {
     console.log('Error: ' + error.code + ' ' + error.message);
   }
+});
+});
+
+//微信下单
+AV.Cloud.define('WeChatCreateOrder', function(request, response)
+{
+  //此种充值方式废弃
+  //return response.error('Error');
+  var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
+  //客户端IP
+  var clientIP = request.meta.remoteAddress;
+  //request.params.spbill_create_ip = clientIP;
+  //request.params.notify_url = "http://asplp.leanapps.cn/pay";
+  var fee = request.params.fee * 100;
+  var type = request.params.type;
+  var userid = request.params.userid;
+  var notifyurl = 'http://asplp.leanapp.cn/pay';
+  if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+  {
+    notifyurl ='http://stg-asplp.leanapp.cn/pay';
+    fee = 1;
+  }
+  //console.log(notifyurl);
+  var date = new Date();
+
+  var orderData = 
+  {
+    appid:'wxf3633e02a28d60f0',
+    body:'有朋充值',
+    mch_id:"1364004502",
+    total_fee:fee,
+    notify_url:notifyurl,
+    out_trade_no: Math.floor((date.getTime()+Math.random())*1000).toString(),
+    nonce_str:util.generateNonceString(),
+    attach:userid.toString(), 
+    spbill_create_ip : clientIP,
+    trade_type:'APP'
+  }
+
+  wxpay.createUnifiedOrder(orderData, function(err, result)
+  {
+    //response.success(result);
+    if(result.return_code == 'SUCCESS')
+    {
+      
+      result.timestamp = date.getTime()/1000;
+      var retData = {
+        appid: 'wxf3633e02a28d60f0',
+        noncestr: result.nonce_str,
+        partnerid: '1364004502',
+        prepayid: result.prepay_id,
+        timestamp: parseInt(date.getTime()/1000),
+        package: 'Sign=WXPay',
+        sign: ''
+      }
+      retData.sign = wxpay.sign(retData);
+      //console.log(retData);
+      //返回预付单号
+      response.success(retData);
+      //写入数据库
+      //
+      //var WeChatOrder = AV.Object.extend('wechatOrder');
+      var order = new WeChatOrder();
+      //记录订单号
+      order.set('tradeNo', orderData.out_trade_no);
+      //记录用户id
+      order.set('userID', userid);
+      //记录订单状态 0-下单
+      order.set('orderState', 0);
+      //记录购买物品
+      order.set('needFee', fee / 100);
+      order.set('type', type);
+      order.save();
+    }
+    else
+    {
+      response.error(result.return_msg);
+    }
+    //console.log("统一下单结果:",result);
 });
 });
 
