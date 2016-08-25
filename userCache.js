@@ -578,6 +578,16 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
       }
       else
       {
+        redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
+        redisClient.getAsync(LoverWorldKey(data.other)).then(function(info){
+          if(info)
+          {
+           var other = JSON.parse(info);
+           other.theme = request.params.theme;
+                //对方只更换背景,而非购买背景,只有自己拥有背景,对方可以享用背景
+            redisClient.setAsync(LoverWorldKey(data.other), JSON.stringify(other));
+         }
+        });
         response.success('success');
       }
       
@@ -658,6 +668,40 @@ AV.Cloud.define('sendLoverWorldMessage', function(request, response){
   {
     return response.error('失败!');
   })
+});
+
+AV.Cloud.define("getIntimacyRank", function(request, response)
+{
+  redisClient.keys(LoverWorldKey('*'), function (err, keys) 
+    {
+      if(!err)
+      {
+        var array = eval(keys);
+        var needSort = new Array();
+        for (var i = array.length - 1; i >= 0; i--) 
+        {
+          var key = array[i];
+          (function(mykey){
+            redisClient.getAsync(mykey).then(function(value)
+          {
+            if(JSON.parse(value).intimacy > 0)
+            {
+              var data = JSON.parse(value);
+              delete data.theme;
+              delete data.hastheme;
+              data['userID'] = mykey.substring(11);
+              needSort.push(data);
+            }
+            if(mykey == array[0])
+            {
+              needSort.sort(function(a,b){return b.intimacy - a.intimacy});
+              response.success(needSort.slice(0, 20));
+            }
+          });
+          })(key);
+        }
+      }
+    });
 });
 
 function LoverWorldKey(userID)
