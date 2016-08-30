@@ -20,9 +20,11 @@ var GiftSend = AV.Object.extend('GiftSend');
 var GiftRecv = AV.Object.extend('GiftRecv');
 var GiftSendLog = AV.Object.extend('GiftSendLog');
 global.moneyLog = AV.Object.extend('moneyLog');
+var acutionLog = AV.Object.extend('acutionLog');
 var package = AV.Object.extend('package');
 var giftInfo = {};
 var seedrandom = require('seedrandom');
+
 initGiftInfo();
 
 //创建赌场房间
@@ -30,16 +32,17 @@ AV.Cloud.define('createGameRoom', function(request, response)
 {
 	//并发控制
 	var req = reqCount();
-	var key = "1," + request.params.userID;
-	if(req[key])
+	var key = "createGameRoom:" + request.params.userID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
 	{
-		if(req[key] > 0)
+		redisClient.expire(key, 2);
+		
+		if(id > 1)
 		{
-			return response.error("请求过于频繁!");
+			
+			return response.error('创建房间失败!');
 		}
-	}
-	req[key] = 1;
-
 	var log = new gameRoomLog();
     log.set('userID', request.params.userID);
     log.set('gambling', request.params.gambling);
@@ -49,8 +52,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
     var gambling = request.params.gambling;
 	if(gambling <= 0)
 	{
-		req[key] = 0;
-		delete req[key];
 		return response.error('参数错误!');
 	}
 	var place = request.params.place;
@@ -65,9 +66,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(data.get('goldNum') < gambling)
     		{
     			//response.error('金币不足!');
-    			//并发控制解除
-    			req[key] = 0;
-				delete req[key];
     			return AV.Promise.error('金币不足');
     		}
     		data.increment('goldNum', 0-gambling);
@@ -76,9 +74,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
     	{
     		if(data.get('Diamond') < gambling)
     		{
-    			//并发控制解除
-    			req[key] = 0;
-				delete req[key];
     			return AV.Promise.error('钻石不足');
     		}
     		data.increment('Diamond', 0-gambling);
@@ -102,20 +97,15 @@ AV.Cloud.define('createGameRoom', function(request, response)
     	log.set('roomID', data.get('roomID'));
     	log.save();
 
-    	console.log('创建房间',request.params);
-   		//并发控制解除
-    	req[key] = 0;
-		delete req[key];
+    	
 		return response.success('创建成功!');
     }).catch(function(error)
     {
     	log.set('state', state);
     	log.save();
-    	//并发控制解除
-    	req[key] = 0;
-		delete req[key];
 		return response.error('创建成功!');
     });
+});
     
 });
 //挑战异常检测
@@ -123,7 +113,8 @@ AV.Cloud.define('createGameRoom', function(request, response)
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
- 		return ;
+ 		clearInterval(timer);
+ 		//return ;
  	}
  	console.log('1分钟一次定时异常检测!');
  	var query = new AV.Query('petGamblingLog');
@@ -161,6 +152,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
 			//console.log("roomKey:",room[key].length);
 		}
 		//clearInterval(timer);
+
 		new AV.Query('chatUsers').containedIn('userID',userIDs).find().then(function(results){
 			
 			for (var i = results.length - 1; i >= 0; i--)
@@ -187,12 +179,13 @@ AV.Cloud.define('createGameRoom', function(request, response)
 				log.save();
 			}
 		});
-	});
+	});	
  }, 60000);
 
 AV.Cloud.define('saveDailyLikeLovers', function(request, response)
 {
-	//console.log('存储排行数据');
+	return response.error('出错!');
+
 	var query = new AV.Query('chatUsers');
 	query.greaterThan('lover', 0);
 	query.descending('dailylike');
@@ -222,17 +215,16 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 {
 	//并发控制,根据room来控制,一个room只能发起一次请求
 	var req = reqCount();
-	var key = "gameRoom," + request.params.roomID;
-	if(req[key])
+	var key = "JoingameRoom:" + request.params.roomID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
 	{
-		if(req[key] > 0)
+		redisClient.expire(key, 2);
+		if(id > 1)
 		{
-			return response.error("晚了一步!");
+			return response.error('加入房间失败!');
 		}
-	}
-	req[key] = 1;
 	//存储键值对到魂村服务器
-	console.log('joinpetRoom:',request.params.roomID);
 	var win = 0;
 	var userID = request.params.userID;
 	var otherID = 0;
@@ -242,7 +234,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	var diamond = 0;
 	return new AV.Query('gameRoom').equalTo('roomID', request.params.roomID).first().then(function(data)
 	{
-		if( !data)
+		if(!data)
 		{
 			return AV.Promise.error('There was an error.');
 		}
@@ -261,7 +253,6 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	}).then(function(success)
 	{
 		var nValue = parseInt(Math.random()*10);
-		console.log(nValue);
 		if (request.params.newversion == 1 )
 		{
 			//新版本直接根据结果
@@ -274,8 +265,6 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		else
 		{
 			response.success(nValue);
-			req[key] = 0;
-			delete req[key];
 			return AV.Promise.error('over');
 		}
 		
@@ -347,7 +336,6 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		log.set('Diamond', diamond);
 		log.save();
 		response.success(win);
-		delete req[key];
 
 	}).catch(function(error) 
 	{
@@ -356,9 +344,8 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 			return;
 		}
 		response.error(error);
-		req[key] = 0;
-		delete req[key];
   	});
+});
 });
 
 AV.Cloud.define('SavePetGameInfo',function(request, response)
@@ -431,9 +418,6 @@ AV.Cloud.define('SavePetGameInfo',function(request, response)
 				return response.error('出错!');
 			});
 			});
-			
-
-			
 		}
 		else
 		{
@@ -452,22 +436,19 @@ AV.Cloud.define('upItem', function(request, response)
 	{
 		return response.error('参数有误!');
 	}
+	var key = 'upItem:'+request.params.userID;
 	//并发控制
-	var req = reqCount();
-	var key = "upItem," + request.params.userID;
-	//console.log(reqCount().key);
-	if(req[key])
+	redisClient.incr(key,function( err, id ) 
 	{
-		if(req[key] > 0)
+		redisClient.expire(key, 2);
+		if(id > 1)
 		{
-			return response.error("请求过于频繁!");
+			return response.error('上架失败!');
 		}
-	}
-	req[key] = 1;
-
 	var query = new AV.Query('package');
 	query.equalTo('userID', request.params.userID);
 	query.equalTo('itemID', request.params.itemID);
+	
 	query.first().then(function(data)
 	{
 		if(!data)
@@ -494,52 +475,62 @@ AV.Cloud.define('upItem', function(request, response)
   		{
 			console.log("写入拍卖数据");
 		}
-		
 		var obj = new auctionItems;
 		obj.set('ownerID', request.params.userID);
 		obj.set('itemID', request.params.itemID);
 		obj.set('itemCount', request.params.itemCount);
 		obj.set('floorPrice', request.params.price);
 		obj.set('itemName', request.params.name);
+		if(request.params.otherName)
+			obj.set('otherName', request.params.otherName);
+		if(request.params.buyer)
+			obj.set('buyer', request.params.buyer);
 		obj.fetchWhenSave(true);
 		return obj.save();
 	}).then(function(obj)
 	{
-		req[key] = 0;
-		delete req[key];
+		var log = new acutionLog();
+		log.set('ownerID', obj.get('ownerID'));
+		log.set('acutionID', obj.get('auctionID'));
+		log.set('buyFor', "上架");
+		log.set('floorPrice', obj.get('floorPrice'));
+		log.set('itemID', obj.get('itemID'));
+		log.set('itemCount', obj.get('itemCount'));
+		log.set('otherName', obj.get('otherName'));
+		log.set('buyer', obj.get('buyer'));
+		log.save();
 		var auctionID = obj.get('auctionID');
-		console.log("auctionID:"+auctionID);
+		
 		return response.success(auctionID);
 	}).catch(function(error)
 	{
-		//console.log(error);
-		req[key] = 0;
-		delete req[key];
 		return response.error('上架失败!');
 	});
+});
 });
 
 //购买或下架
 AV.Cloud.define('buyItem', function(request, response)
 {
-	var reqData = request.params;
-	//并发控制
-	var key = "auction," + reqData.auctionID;
-	var req = reqCount();
-	if(req[key])
-	{
-		if(req[key] > 0)
-		{
-			return response.error("该物品已经下架或者被买走了!");
-		}
-	}
-	req[key] = 1;
 
-	var log = new moneyLog();
+	var reqData = request.params;
+	var key = 'buyItem:'+ request.params.auctionID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('购买失败!');
+		}
+		var log = new moneyLog();
 	log.set('des', "交易中心购买");
 	var query = new AV.Query('auctionItems');
 	query.equalTo('auctionID', reqData.auctionID);
-	query.first().then(function(data)//查询数据
+	var auctionItem;
+	var diamond = 0;
+	var buyer = 0;
+	return query.first().then(function(data)//查询数据
 	{
 		if (!data)
 		{
@@ -549,16 +540,20 @@ AV.Cloud.define('buyItem', function(request, response)
 		reqData.price = data.get('floorPrice');
 		reqData.itemID = data.get('itemID');
 		reqData.itemCount = data.get('itemCount');
-		//console.log("删除拍卖物品!");
 		log.set('acutionID', data.get('auctionID'));
-		log.set('diamondIncrease', data.get('floorPrice'));
+		log.set('floorPrice', data.get('floorPrice'));
 		log.set('userid', data.get('ownerID'));
-
-		if(data.get('ownerID') == 6)
+		log.set('itemID', data.get('itemID'));
+		log.set('itemCount', data.get('itemCount'));
+		log.set('buyer', data.get('buyer'));
+		buyer = data.get('buyer');
+		if(data.get('buyer') && data.get('buyer') > 0 && data.get('buyer') != reqData.buyer && data.get('ownerID') != reqData.buyer)
 		{
-			return AV.Promise.as('success');
+			return AV.Promise.error('指定购买人与实际购买人不一致!');
 		}
-		return data.destroy();
+		log.set('buyerName', data.get('otherName'));
+		diamond = data.get('floorPrice');
+		auctionItem = data;
 	}).then(function(success)
 	{
 		var query1 = new AV.Query('chatUsers');
@@ -567,11 +562,9 @@ AV.Cloud.define('buyItem', function(request, response)
   		var query2 = new AV.Query('chatUsers');
   		query2.equalTo('userID', reqData.owner);
 		var query = AV.Query.or(query1, query2);
-		//console.log("orqueryerror");
 		return query.find();
 	}).then(function(results)
 	{
-		console.log('增加钻石和减少钻石!' + reqData.owner+","+reqData.buyer +"userCount:"+results.length);
 		if(reqData.owner == reqData.buyer)
 		{
 			return AV.Promise.as('The good result.');
@@ -581,25 +574,56 @@ AV.Cloud.define('buyItem', function(request, response)
 			var obj = results[i];
 			if(obj.get('userID') == reqData.owner)//收钱方
 			{
+
 				log.set('diamondBefore', obj.get('Diamond'));
-				obj.increment('Diamond', reqData.price);
-				//console.log('userID' + reqData.owner + "diamond:" + reqData.price);
+
+				if(buyer > 0)
+				{
+					if( obj.get('freeAuctionAt') && checkDaySame(new Date(), obj.get('freeAuctionAt')))
+					{
+						if(diamond >= 5 && diamond < 10)
+						{
+							diamond -= 1;
+						}
+						if(diamond >= 10 && diamond < 100)
+						{
+							diamond = parseInt(diamond * 0.9);
+						}
+						else if(diamond >= 100 && diamond < 500)
+						{
+							diamond = parseInt(diamond*0.85);
+						}
+						else if(diamond>= 500)
+						{
+							diamond = parseInt(diamond*0.8);
+						}
+					}
+					else if(diamond >= 5)//5钻以下的东西不收手续费
+					{
+						obj.set('freeAuctionAt', new Date());
+					}
+				}
+				obj.increment('Diamond', diamond);
+				log.set('diamondIncrease', diamond);
 			}
 			else
 			{
 				if(obj.get('Diamond') < reqData.price)
 				{
+					log.set('otherdiamondBefore', obj.get('Diamond'));
 					//response.error('钻石数量不足!');
 					return AV.Promise.error('钻石数量不足!');
 				}
 				obj.increment('Diamond', 0 - reqData.price);
-				//console.log("userID" + obj.get('userID') + "diamond"+ obj.get('Diamond'));
 			}
 		}
 		return AV.Object.saveAll(results);
-	}).then(function(success)
+	}).then(function(resutls)
 	{
 		log.set('otherid', reqData.buyer);
+		return  auctionItem.destroy();
+	}).then(function(data)
+	{
 		query = new AV.Query('package');
 		query.equalTo('userID', reqData.buyer);
 		return query.find();
@@ -621,10 +645,7 @@ AV.Cloud.define('buyItem', function(request, response)
 		return obj.save();
 	}).then(function(success)
 	{
-		response.success('购买成功!');
-		req[key]= 0;
-		delete req[key];
-
+		response.success({'price':diamond});
 		if(reqData.owner != reqData.buyer)
 		{
 			log.save();
@@ -633,8 +654,7 @@ AV.Cloud.define('buyItem', function(request, response)
 	}).catch(function(error)
 	{
 		response.error(error);
-		req[key] = 0;
-		delete req[key];
+	});	
 	});
 });
 
@@ -665,16 +685,14 @@ AV.Cloud.define('silverChange', function(request, response)
 	//并发控制
 	var key = "silverChange," + request.params.userID;
 	var req = reqCount();
-	if(req[key] && req[key] > 0)
+	redisClient.incr(key, function(error, id)
 	{
-		//6个小时兑换一次
-		//if(parseInt(new Date().getTime()/3600000) - req[key] < 6)
+		redisClient.expire(key, 2);
+		if(id > 1)
 		{
 			return response.error("兑换冷却中(每次兑换需要间隔6个小时)!");
 		}
-	}
-	req[key] = 1;
-
+	
 	var log = new global.moneyLog();
 	var query = new AV.Query('chatUsers');
 	query.equalTo('userID', request.params.userID);
@@ -691,7 +709,6 @@ AV.Cloud.define('silverChange', function(request, response)
 		log.set('goldIncrease', gold);
 		if(data.get('goldNum') < -1*gold  || data.get('silverCoin') < -1 * silver)
 		{
-			//console.log("error");
 			return AV.Promise.error('There was an error.');
 		}
 		data.increment('goldNum', gold);
@@ -705,18 +722,14 @@ AV.Cloud.define('silverChange', function(request, response)
 		log.save();
 		var retData = {goldNum:data.get('goldNum'), silverCoin:data.get("silverCoin")};
 		//req[key] = parseInt(new Date().getTime()/3600000);
-		req[key] = 0;
-		delete req[key];
 		return response.success(retData);
 
 	}).catch(function(error)
 	{
 		log.save();
-		//console.log("deal error");
-		req[key] =0;
-		delete req[key];
 		return response.error('金币不足!');
 	});
+});
 });
 
 AV.Cloud.define('sealAccount', function(request, response) 
@@ -783,13 +796,25 @@ AV.Cloud.define('petRankFight', function(request, response)
 	var req = reqCount();
 	var key = "petRank:" + request.params.petID;
 	var key2 = 'petRank:' + request.params.otherID;
-	if((req[key] && req[key] > 0 )|| (req[key2] && req[key2] >0))
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
 	{
-		return response.error('error');
-	}
-	req[key] = 1;
-	req[key2] = 1;
-	return response.success('success');
+		if(id > 1)
+		{
+			return response.error('宠物正在被挑战!');
+		}
+		else
+		{
+			redisClient.incr(key2, function(err, id)
+			{
+				if(id > 1)
+				{
+					return response.error('金币不足');
+				}
+				return response.success('success');
+			});
+		}
+	});
 	//改为存储到缓存,防止切换的时候出问题
 
 });
@@ -798,10 +823,8 @@ AV.Cloud.define('clearPetRankFight',function(request, response)
 	var req = reqCount();
 	var key = "petRank:" + request.params.petID;
 	var key2 = 'petRank:' + request.params.otherID;
-	req[key] =0;
-	delete req[key];
-	req[key2] = 0;
-	delete req[key];
+	redisClient.delAsync(key);
+	redisClient.delAsync(key2);
 	response.success('请求成功!');
 });
 var gold = [0,20,50,100,200,400,700,900,1200,1500,2000];
@@ -811,11 +834,14 @@ AV.Cloud.define('harvestPlant',function(request, response)
 {
 	var req = reqCount();
 	var key = 'Plant:'+ request.params.buildingNo;
-	if(req[key] && req[key] > 0)
+	redisClient.incr(key, function(error, id)
 	{
-		return response.error('失败!');
-	}
-	req[key] = 1;
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('收取失败!');
+		}
+
 	var goldCount = 0;
 	var charmCount =0;
 	var user = 0;
@@ -829,12 +855,11 @@ AV.Cloud.define('harvestPlant',function(request, response)
 			return AV.Promise.error('查询失败!');
 		}
 		plantID = data.get('plant');
-		//console.log('时间:',new Date().getTime()/1000, data.get('plantTime'));
 		var second = new Date().getTime()/1000 + 3600*8 - data.get('plantTime');
 		var plantTime = (plantID * 8 +4)*3600;
 		if(second < plantTime)//未到收获时间
 		{	
-			return AV.Promise.error('shibai');
+			return AV.Promise.error('未到收获时间');
 		}
 		
 		count = data.get('plantCount');
@@ -852,7 +877,6 @@ AV.Cloud.define('harvestPlant',function(request, response)
                 diamond = parseInt(Math.random() * 1000) % 20 + 1;
             }
          }
-         console.log('魅力值+',charmCount);
 		data.set('plant',0);
 		data.set('plantTime',0);
 		data.set('plantCount', 0);
@@ -870,7 +894,6 @@ AV.Cloud.define('harvestPlant',function(request, response)
 			data.increment('Diamond', diamond);
 		}
 		//日魅力增加
-		console.log('dailylikeAt:, now:', data.get('dailylikeAt'), new Date());
 		if(data.get('dailylikeAt') && checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
 		{
 			data.increment('dailylike', charmCount);
@@ -886,15 +909,13 @@ AV.Cloud.define('harvestPlant',function(request, response)
 	{
 		var retData = {'nCharmIncrease':charmCount,'goldIncrease':goldCount,'DiamondIncrease':diamond,
 						'goldNum':data.get('goldNum'),'Diamond':data.get('Diamond'),'plant':plantID,'plantCount':count};
-		req[key] = 0;
-		delete req[key];
+		
 		response.success(retData);
 	}).catch(function(error)
 	{
-		req[key] = 0;
-		delete req[key];
-		response.error('收获失败!');
-	})
+		response.error(error);
+	});
+	});
 });
 function checkDaySame(date, now)
 {
@@ -905,10 +926,14 @@ AV.Cloud.define('recoveryBuilding',function(request, response)
 {
 	var req = reqCount();
 	var key = 'Recovery:'+ request.params.buildingNo;
-	if(req[key] && req[key] > 0)
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
 	{
-		return response.error('失败!');
-	}
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('回收失败!');
+		}
 	var diamond =0;
 	var gold =0;
 	var userID = 0;
@@ -943,15 +968,13 @@ AV.Cloud.define('recoveryBuilding',function(request, response)
 		}
 		return data.save();
 	}).then(function(success){
-		req[key]  = 0;
-		delete req[key];
 		response.success({'diamond':diamond,'gold':gold})
 	}).catch(function(error)
 	{
-		req[key] =0;
-		delete req[key];
-		response.error('error');
+		
+		response.error(error);
 	});
+});
 });
 
 //偷取植物
@@ -959,11 +982,14 @@ AV.Cloud.define('stealPlant',function(request, response)
 {
 	var req = reqCount();
 	key = 'steal:'+request.params.buildingNo;
-	if(req[key] && req[key] > 0)
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
 	{
-		return response.error('error');
-	}
-	req[key] = 1;
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('偷取失败!');
+		}
 	var query = new AV.Query('visitorLog');
 	
 	query.equalTo('visitorJob', 10);
@@ -1022,36 +1048,14 @@ AV.Cloud.define('stealPlant',function(request, response)
 		}
 		data.increment('beLikedNum', charmIncrease);
 		data.save();
-		req[key] = 1;
-		delete req[key];
 		response.success('完成!');
 	}).catch(function(error)
 	{	
-		req[key] = 0;
-		delete req[key];
+		
 		response.error('error');
 	});
 });
-
-var timeMem= setInterval(function()
-{
-	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
- 	{
- 		return ;
- 	}
-     var mem = process.memoryUsage();
-     var format = function(bytes) 
-     {
-          return (bytes/1024/1024).toFixed(2)+'MB';
-     };
-     console.log('Process: heapTotal '+format(mem.heapTotal) + ' heapUsed ' + format(mem.heapUsed) + ' rss ' + format(mem.rss));
-     console.log('----------------------------------------');
-
-     var arr = Object.keys(reqCount());
-     console.log('reqcount:',arr.length);
-
-
-}, 30000);
+});
 
 //结婚装饰续费
 AV.Cloud.define('renewDecoration', function(request, response)
@@ -1132,9 +1136,17 @@ AV.Cloud.define('sendGift', function(request, response)
 	var goldSend = 0;
 	var diamondSend = 0;
 	var loverIncrease = 1.0;
+	var key = "sendGift:"+userID;
+//并发控制
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('送礼失败!');
+		}
 	return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
 		{
-			//console.log(step++);
 			if(!data)
 		{
 			return AV.Promise.error('错误!');
@@ -1145,6 +1157,8 @@ AV.Cloud.define('sendGift', function(request, response)
 		}
 		var needGold = gift.get('Gold') || 0;
 		var needDiamond = gift.get('Diamond')||0;
+		needGold *= vipprice[data.get('VIPType')];
+		needDiamond *= vipprice[data.get('VIPType')];
 
 		if (needGold > 0 && data.get('goldNum') < needGold) {
 			return AV.Promise.error('金币不足');
@@ -1162,8 +1176,8 @@ AV.Cloud.define('sendGift', function(request, response)
 		//写入日消费
 		if(gift.get('Charm') > 0)
 		{
-			data.increment('goldNum', -1* needGold * vipprice[data.get('VIPType')]);
-			data.increment('Diamond', -1* needDiamond * vipprice[data.get('VIPType')]);
+			data.increment('goldNum', -1* needGold );
+			data.increment('Diamond', -1* needDiamond);
 			if(data.get('dailyUseGoldAt') && checkDaySame(data.get('dailyUseGoldAt'), new Date()))
 			{
 				data.increment('dailyUseGold', needGold + needDiamond * 10);
@@ -1180,18 +1194,15 @@ AV.Cloud.define('sendGift', function(request, response)
 			data.increment('goldNum', -1* needGold);
 			data.increment('Diamond', -1* needDiamond);
 		}
-		//console.log(step++);
 		data.fetchWhenSave(true);
 		return data.save();
 		}).then(function(data)
 		{
-			//console.log(step++);
 			log.set('goldAfter', data.get('goldNum'));
 			log.set('diamondAfter', data.get('Diamond'));
 			return new AV.Query('chatUsers').equalTo('userID', toID).first();
 		}).then(function(data)
 		{
-			//console.log(step++);
 			log.set('toID', data.get('userID', toID));
 			log.set('otherGoldQ', data.get('goldNum'));
 			log.set('otherDiamondQ', data.get('Diamond'));
@@ -1233,7 +1244,6 @@ AV.Cloud.define('sendGift', function(request, response)
 			return data.save();
 		}).then(function(data)
 		{
-			//console.log(step++);
 			toUserName = data.get('nickName');
 			log.set('Meili', data.get('beLikedNum'));
 			log.set('otherGoldH', data.get('goldNum'));
@@ -1241,8 +1251,6 @@ AV.Cloud.define('sendGift', function(request, response)
 			return log.save();
 		}).then(function(success)
 		{
-			//console.log(step++);
-			console.log('写入赠送!');
 			var query = new AV.Query('GiftSend');
 			query.equalTo('userid', userID);
 			query.equalTo('giftid', giftID);
@@ -1287,10 +1295,10 @@ AV.Cloud.define('sendGift', function(request, response)
 
 		}).catch(function(error)
 		{
-			console.log(error);
 			log.save();
 			response.error('发送失败!');
 		});
+	});
 });
 function initGiftInfo()
 {
@@ -1299,7 +1307,6 @@ function initGiftInfo()
 		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
 			giftInfo[data.get('GiftID')] = JSON.stringify(data);
-			console.log('giftID:'+ data.get('GiftID'));
 		}
 	});
 };
@@ -1405,7 +1412,6 @@ var timer3 = setInterval(function getChest()
 				}
 				var key = data.get('sysID') - 83;
 				chestValue[key] = newArray;
-				//console.log(key+ newArray);
 			}
 		}
 	});
@@ -1415,11 +1421,14 @@ AV.Cloud.define('useChestBatch', function(request, response)
 {
 	var req = reqCount();
 	var reqKey = "useChest:" + request.params.userID;
-	if(req[reqKey] && req[reqKey] > 0)
+	//并发控制
+	redisClient.incr(reqKey,function( err, id ) 
 	{
-		return response.error('访问太过频繁!');
-	}
-	req[reqKey] = 1;
+		redisClient.expire(reqKey, 2);
+		if(id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
 	var random = seedrandom('added entropy.', { entropy: true });
 
 	var itemID = request.params.itemID;
@@ -1448,9 +1457,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		{
 			var number = random();
 			var rand = Math.floor(number * 100);
-			console.log(rand+","+number);
 			var array = chestValue[itemID];
-			console.log(array);
 			var size = 0;
 			for (var j = array.length - 1; j >= 0; j--) 
 			{
@@ -1458,12 +1465,10 @@ AV.Cloud.define('useChestBatch', function(request, response)
 				{
 					if( saveDatas[array[j].item] )
 					{
-						console.log(array[j].item);
 						saveDatas[array[j].item] += 1;
 					}
 					else
 					{
-						console.log(array[j].item);
 						saveDatas[array[j].item] = 1;
 					}
 					break;
@@ -1474,7 +1479,6 @@ AV.Cloud.define('useChestBatch', function(request, response)
 				}
 			}
 		}
-		console.log(saveDatas);
 		for(var key in saveDatas)
 		{
 			var bhas = false;
@@ -1509,16 +1513,222 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		return AV.Object.saveAll(saveObjects);
 	}).then(function(success)
 	{
-		req[reqKey] = 0;
-		delete req[reqKey];
 		response.success(saveDatas);
 
 	}).catch(function(error)
 	{
-		req[reqKey] = 0;
-		delete req[reqKey];
 		return response.error('道具不足!');
 	});
+});
+});
+
+AV.Cloud.define('ComposeItem', function(request, response){
+	var key = "ComposeItem:" + request.params.userID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		var item = request.params.itemID;
+		var itemCount = parseInt(request.params.itemCount/5);
+		if(item < 40 || item == 43 || item > 47 || request.params.itemCount < 5)
+		{
+			return response.error('无法合成!');
+		}
+		var query = new AV.Query('package');
+		query.equalTo('userID', request.params.userID);
+		query.containedIn('itemID', [item, item+1]).find().then(function(results)
+		{
+			var count = 0;
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if(data.get('itemID') == item)
+				{
+					if(data.get('itemCount') < request.params.itemCount)
+					{
+						
+						return AV.Promise.error('道具数量不足,无法合成!');
+					}
+					data.increment('itemCount', -5*itemCount);
+					count += itemCount;
+				}
+				else 
+				{
+					count += 1;
+					data.increment('itemCount', itemCount);
+				}
+			}
+			if(count == 0 || count == 1)
+			{
+				return AV.Promise.error('数据异常!');
+			}
+			else if(count == itemCount)
+			{
+				var obj = new package();
+				obj.set('itemID', item+1);
+				obj.set('itemCount', itemCount);
+				obj.set('userID', request.params.userID);
+				results.push(obj);
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			response.success('合成成功!');
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+var petGift = {'29':{'goldNum':200, 'goldMax':200,'diamond':0, 'item':17,'itemCount':3},
+'30':{'goldNum':500, 'goldMax':500,'diamond':10, 'item':17,'itemCount':6},
+'31':{'goldNum':1000, 'goldMax':1000,'diamond':28, 'item':17,'itemCount':10},
+'32':{'goldNum':2000, 'goldMax':2000,'diamond':68, 'item':18,'itemCount':3},
+'33':{'goldNum':3000, 'goldMax':3000,'diamond':128, 'item':18,'itemCount':5},
+'34':{'goldNum':5000, 'goldMax':5000,'diamond':188, 'item':18,'itemCount':10},
+'35':{'goldNum':8000, 'goldMax':8000,'diamond':268, 'item':19,'itemCount':5},
+'36':{'goldNum':12000, 'goldMax':10000,'diamond':388, 'item':19,'itemCount':10},
+'37':{'goldNum':15000, 'goldMax':12000,'diamond':498, 'item':19,'itemCount':20},
+'38':{'goldNum':30000, 'goldMax':15000,'diamond':498, 'item':19,'itemCount':50},
+}
+AV.Cloud.define('UseItem', function(req, res)
+{	
+	var key = "UseItem:" + req.params.userID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 2);
+		if(id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+	var item = req.params.itemID;
+	var newItem = -1;
+	var saveObj = new Array();
+	return new AV.Query('package').equalTo('itemID', item).equalTo('userID', req.params.userID).first().then(function(data)
+	{
+		if(!data || data.get('itemCount') <= 0)
+		{
+			return AV.Promise.error('道具不足,无法使用!');
+		}
+
+		var nAttackType = parseInt(Math.random()*10)%5;
+		var items = {'46':[52, 52, 50, 50, 49], '47':[53, 53, 51, 51, 22], '48':[26, 26, 27, 27, 23]};
+		if(item > 45 && item < 49)
+		{
+			if(data.get('itemCount') < 20)
+			{
+				return AV.Promise.error('道具不足,无法使用!');
+			}
+			newItem = items[item][nAttackType];
+			data.increment('itemCount', -20);
+			saveObj.push(data);
+			return new AV.Query('package').equalTo('userID', req.params.userID).equalTo('itemID',newItem).first();
+		}
+		else
+		{
+			//data.increment('itemCount', -1);
+			data.destroy();
+			saveObj.push(data);
+			return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
+		}
+	}).then(function(data)
+	{
+		//开启宝箱
+		if(newItem < 0)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('查询失败!');
+			}
+			var level = (item - 29) * 10;
+			if(data.get('petReword') > level)
+			{
+				
+				return AV.Promise.error('你已经领取过礼包了!');
+			}
+			data.increment('goldNum', petGift[item]['goldNum']);
+			data.increment('goldMax', petGift[item]['goldMax']);
+			data.increment('Diamond', petGift[item]['diamond']);
+			data.set('petReword', level+10);
+			saveObj.push(data);
+			return new AV.Query('package').equalTo('userID', req.params.userID).containedIn('itemID', 
+				[item+1, petGift[item.toString()]['itemID']]).find();
+		}
+		else
+		{
+			if(data)
+			{
+				data.increment('itemCount', 1);
+				saveObj.push(data);
+			}
+			else
+			{
+				var obj = new package();
+				obj.set('itemID', newItem);
+				obj.set('itemCount', 1);
+				obj.set('userID', req.params.userID);
+				saveObj.push(obj);
+			}
+			return AV.Object.saveAll(saveObj);
+		}
+	}).then(function(results)
+	{
+		if(newItem > 0)
+		{
+			res.success({'itemID':newItem});
+			return AV.Promise.error('success');
+		}
+		else
+		{
+			var count = 0;
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if(data.get('itemID') == item+1)
+				{
+					count+= 1;
+				}
+				else 
+				{
+					count += 2;
+					data.increment('itemCount', petGift[item.toString()]['itemCount']);
+					saveObj.push(dat);
+				}
+			}
+			if((count == 2 || count == 0) && item < 38)
+			{
+				var obj = new package();
+				obj.set('itemID', item+1);
+				obj.set('itemCount', 1);
+				obj.set('userID', req.params.userID);
+				saveObj.push(obj);
+			}
+			if(count == 0 || count == 1)
+			{
+				var obj = new package();
+				obj.set('itemCount', petGift[item.toString()]['itemCount']);
+				obj.set('itemID', petGift[item.toString()]['itemID']);
+				obj.set('userID', req.params.userID);
+				saveObj.push(obj);
+			}
+			return AV.Object.saveAll(saveObj);
+		}
+	}).then(function(success)
+	{
+		res.success('成功!');
+	}).catch(function(error)
+	{
+		if(error == 'success')
+		{
+			return;
+		}
+		res.error(error);
+	})
+});
 });
 
 module.exports = AV.Cloud;

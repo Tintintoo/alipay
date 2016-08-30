@@ -25,7 +25,6 @@ AV.Cloud.define('getUserInfo',function(request, response)
 {
 	var userIds = request.params.userid;
   var retData = new Array();
-  //console.log(userIds);
   if(IsArray(userIds) == 'object')
   {
     fetchUserFromCache(userIds, response,'chatUsers');
@@ -78,17 +77,14 @@ AV.Cloud.define('getMainBuilding',function(request,response)
 //从缓存中读取一个用户
 function fetchUserFromCache(userId, response)
 {
-  //console.log(new Date(),'开始获取');
   return redisClient.getAsync(redisUserKey(userId)).then(function(cachedUser) 
   {
     if (cachedUser) 
     {
       // 反序列化为 AV.Object
       var obj = new AV.Object(JSON.parse(cachedUser), {parse: true});
-      //console.log('从缓存中读取..');
       obj.set('serverTimeString', new Date());
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
-      //return obj;
       response.success(obj);
     } 
     else 
@@ -97,11 +93,9 @@ function fetchUserFromCache(userId, response)
       {
         if(user)
         {
-          //console.log("数据库查询结果!");
           user.set('serverTimeString', new Date());
           user.set('serverTimeSecond', Math.floor(new Date()/1000));
           response.success(user);
-          //console.log(new Date(),'返回结果');
           redisClient.setAsync(redisUserKey(userId), JSON.stringify(user)).catch(console.error);
           return;
         }
@@ -117,7 +111,6 @@ function redisUserKey(userId)
 /* 在 User 被修改后删除缓存 */
 AV.Cloud.afterUpdate('chatUsers', function(request) 
 {
-  //console.log('delete:',request.object.get('userID'));
   redisClient.setAsync(redisUserKey(request.object.get('userID')), JSON.stringify(request.object)).catch(console.error);
   redisClient.expire(redisUserKey(request.object.get('userID')), 86400 * 3);
 });
@@ -181,7 +174,6 @@ AV.Cloud.define('getGiftHistory', function(request, response)
   {
      if (cachedUser) 
     {
-      //console.log('缓存中读取送礼和收礼信息');
       var data = JSON.parse(cachedUser);
       response.success(data);
     }
@@ -404,7 +396,6 @@ function saveMedalToCache(data, medalFields)
       realData[medalFields[i]] = data.get(medalFields[i]);
   }
   redisClient.setAsync('medal:'+ data.get('userID'), JSON.stringify(realData)).catch(console.error);
-  console.log(realData);
   return realData;
 }
 AV.Cloud.define('getMedalFields',function(request, response)
@@ -419,7 +410,6 @@ AV.Cloud.define('getMedalInfo',function(request, response)
   {
     if(cacheUser)
     {
-      console.log("缓存读取",cacheUser);
       return response.success(JSON.parse(cacheUser));
     }
     else
@@ -432,7 +422,6 @@ AV.Cloud.define('getMedalInfo',function(request, response)
         }
         else
         {
-          console.log("数据库转缓存",data);
           response.success(saveMedalToCache(data, getMedalFields()));
         }
       });
@@ -661,7 +650,8 @@ AV.Cloud.define('sendLoverWorldMessage', function(request, response){
       }
       else
       {
-        console.log('没查到数据!');
+        //response.error('没查到数据!');
+        //console.log('没查到数据!');
       }
     });
   }).catch(function(error)
@@ -708,162 +698,21 @@ function LoverWorldKey(userID)
 {
   return 'loverWorld:'+userID;
 }
-
-function changeChar(c)
+AV.Cloud.define('getBadUserCache', function(req, res)
 {
-  if (c == '1') {
-        return 'A';
-    }
-    if (c == 'A')
+  redisClient.keys(redisUserKey('*'), function (err, keys) 
     {
-        return '1';
-    }
-    if (c == '2') {
-        return '=';
-    }
-    if (c == '=') {
-        return '2';
-    }
-    if (c == '3') {
-        return '+';
-    }
-    if (c == '+') {
-        return '3';
-    }
-    if (c == '4') {
-        return 'b';
-    }
-    if (c == 'b') {
-        return '4';
-    }
-    if (c == '5') {
-        return 'r';
-    }
-    if (c == 'r') {
-        return '5';
-    }
-    if (c == '6') {
-        return 't';
-    }
-    if (c == 't') {
-        return '6';
-    }
-    if (c == '7') {
-        return '?';
-    }
-    if (c == '?') {
-        return '7';
-    }
-    if (c == '8') {
-        return 'm';
-    }
-    if (c == 'm') {
-        return '8';
-    }
-    if (c == '9') {
-        return '$';
-    }
-    if (c == '$') {
-        return '9';
-    }
-    if (c== '0')
-    {
-        return 'E';
-    }
-    if (c == 'E') {
-        return '0';
-    }
-}
-AV.Cloud.afterSave('chatUsers', function(request) 
-{
-  var sphone = request.object.get('MobilePhone');
-  console.log("after_chatUsersSave", sphone);
-  if(sphone)
-  {
-    console.log('改变之前的电话号码:',sphone, array);
-    var array = sphone.split("");
-    if(array[0]== '1' && request.object.get('Passwd').length >= 32)
-    {
-      for (var i = array.length - 1; i >= 0; i--) {
-        //sphone.charAt(i) = changeChar(sphone.charAt(i));
-        array[i]=changeChar(array[i]);
+      var array = eval(keys);
+      for (var i = array.length - 1; i >= 0; i--) 
+      {
+        (function(myKey){
+          redisClient.getAsync(myKey).then(function(cacheUser)
+        {
+          console.log(myKey);
+          var user = JSON.parse(cacheUser);
+        });
+        })(array[i]);
       }
-      sphone = array.join("");
-      console.log("改变之后的电话号码:",sphone);
-      var query = new AV.Query('chatUsers');
-      query.get(request.object.id).then(function(data){
-        data.set('MobilePhone', sphone);
-        data.save();
-      });
-   }
-  }
+    });
 });
-
-var timer2 = setInterval(function()
-  {
-    if (process.env.LEANCLOUD_APP_ENV == 'stage') 
-  {
-    redisClient.keys('petSize:*', function (err, keys) 
-    {
-      if(!err)
-      {
-        //console.log(keys);
-        console.log(typeof keys);
-        var array = eval(keys);
-
-        for (var i = array.length - 1; i >= 0; i--) 
-        {
-          var key = array[i];
-          (function(mykey){
-            redisClient.getAsync(mykey).then(function(value)
-          {
-            if(value > 5)//最大不允许超过5个
-            {
-              console.log(mykey+':'+value);
-              redisClient.setAsync(mykey, 5);
-            }
-          });
-          })(key);
-        }
-      }
-      else
-      {
-        console.log('没查到!');
-      }
-    });
-    clearInterval(timer2);
-    return ;
-  }
-    console.log('定时检查用户手机号是否规范!');
-    var query = new AV.Query('chatUsers');
-    query.matches('MobilePhone',new RegExp('[0-9]', 'i'));
-    query.limit(1000);
-    query.descending('createdAt');
-    query.find().then(function(results)
-    {
-      //console.log('查询到了',results.length);
-      var changeCount =0;
-      for (var i = results.length - 1; i >= 0; i--) {
-        var data = results[i];
-        var sphone = data.get('MobilePhone');
-        //console.log('改变之前的电话号码:',sphone, array);
-        var array = sphone.split("");
-        if(array[0]== '1' &&  data.get('Passwd') && data.get('Passwd').length >= 32)
-        {
-          for (var j = array.length - 1; j>= 0; j--) 
-          {
-        //sphone.charAt(i) = changeChar(sphone.charAt(i));
-            array[j]=changeChar(array[j]);
-          }
-          sphone = array.join("");
-          data.set('MobilePhone',sphone);
-          //console.log("改变之后的电话号码:",sphone);
-          changeCount++;
-        }
-      }
-      if(changeCount > 0)
-        AV.Object.saveAll(results);
-    });
-
-  }, 30000);
 module.exports = AV.Cloud;
