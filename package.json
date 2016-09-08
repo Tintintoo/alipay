@@ -3,7 +3,7 @@
   "description": "LeanEngine Alipay test project.",
   "version": "0.0.2",
   "engines": {
-  "node": "4.x"
+    "node": "4.x"
   },
   "private": true,
   "dependencies": {
@@ -12,6 +12,7 @@
     "body-parser": "1.12.3",
     "debug": "^2.1.1",
     "express": "4.12.3",
+    "leancloud-realtime": "^3.2.3",
     "leanengine": "^0.1.4",
     "redis": "2.2.x",
     "request": "^2.58.0",

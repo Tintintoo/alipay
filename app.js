@@ -5,6 +5,7 @@ var bodyParser = require('body-parser');
 var cloud = require('./cloud');
 var piaoliuping = require('./piaoliuping');
 var cache = require('./userCache');
+var message = require('./message');
 
 var app = express();
 
@@ -14,6 +15,7 @@ app.use(express.static('public'));
 // 加载云代码方法
 app.use(cloud);
 app.use(piaoliuping);
+app.use(message);
 app.use(cache);
 
 app.use(bodyParser.json());

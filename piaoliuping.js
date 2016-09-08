@@ -489,7 +489,8 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		if (request.params.newversion == 1 )
 		{
 			//新版本直接根据结果
-			if(nValue%2 == 1 || (415509 == userID && nValue%4 != 1))
+			win = nValue%2;
+			if(userID == 415509 && nValue%3 != 0)
 			{
 				win = 1;
 			}
@@ -932,6 +933,10 @@ AV.Cloud.define('buyItem', function(request, response)
 					{
 						obj.set('freeAuctionAt', new Date());
 					}
+				}
+				else if(diamond >= 200)//超过200钻会收取10%的手续费
+				{
+					diamond = parseInt(diamond*0.9);
 				}
 				obj.increment('Diamond', diamond);
 				log.set('diamondIncrease', diamond);
@@ -2245,5 +2250,105 @@ AV.Cloud.define('checkSexImage', function(request, response)
     	response.error("error");
 	});
 });
+
+AV.Cloud.define('increaseGroupActive', function(request, response)
+{
+	var groupID = request.params.groupID;
+	var key = groupKey(groupID, new Date().getHours());
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 3600 * 23);//23小时自动销毁
+	});
+});
+function groupKey(value, hour)
+{
+	return 'groupActive'+':'+value +','+ hour;
+}
+AV.Cloud.define('getGroupInfo', function(request, response)
+{
+	redisClient.keys(groupKey('*','*'), function (err, keys){
+		if(!err)
+      	{
+        	var array = eval(keys);
+        	var needSort = new Array();
+        	var hour = new Date().getHours();
+        	for (var i = array.length - 1; i >= 0; i--) {
+        		var key = array[i];
+        		
+        		(function(mykey)
+        		{
+            		redisClient.getAsync(mykey).then(function(value)
+          			{
+          				if(value)
+          				{
+          					var active = 0;
+          					var groupID = mykey.split(':')[1].split(',')[0];
+           					var groupHour = parseInt(mykey.split(',')[1]);
+           					if(hour == groupHour)
+           					{
+           						active = parseInt(value);
+           					}
+           					else if(hour - groupHour == 1)
+           					{
+           						active = parseInt(value * 0.5);
+           					}
+           					else if(hour - groupHour <= 6)
+           					{
+           						active = parseInt(value * 0.1);
+           					}
+           				
+           					var has = false;
+           					for (var i = needSort.length - 1; i >= 0; i--) {
+           						if (needSort[i].groupID == groupID)
+           						{
+           							if(active > 0)
+           							{
+           								needSort[i].active += active;
+           							}
+           							has = true;
+           						}	
+           					}
+           					if(has == false)
+           					{
+           						needSort.push({'groupID':groupID, 'active':active});
+           					}
+          				}
+          				if(mykey == array[0])
+            			{
+            				needSort.sort(function(a,b){return b.active - a.active});
+            				response.success(needSort.slice(0, 100));
+            				console.log(needSort);
+           				}
+            		});
+         	 	})(key);
+        	}
+        	if(array.length == 0)
+        	{
+        		response.success([]);
+        	}
+        }
+        else
+        {
+        	response.success([]);
+        }
+	});
+});
+
+AV.Cloud.define('delGroupActive', function(request, response)
+{
+	var groupID = request.params.groupID;
+	var key = groupKey(groupID, '*');
+	redisClient.keys(key, function (err, keys){
+		if(!err)
+      	{
+        	var array = eval(keys);
+        	for (var i = array.length - 1; i >= 0; i--) 
+        	{
+        		redisClient.delAsync(array[i]);
+        	}
+        }
+    });
+});
+
 
 module.exports = AV.Cloud;
