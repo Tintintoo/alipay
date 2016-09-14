@@ -16,7 +16,7 @@ realtime.createIMClient('-1').then(function(tom)
     	return tom.createConversation({members: [message.from.toString()],
    	 									name: 'system',unique: true}).then(function(conversation)
  		{	
- 			return conversation.send(new TextMessage(JSON.stringify({'msg':'那我们出去玩吧！','type' :'text','msgtype':0})));
+ 			return conversation.send(new TextMessage(JSON.stringify({'msg':'有疑问可以联系客服小漂!','type' :'text','msgtype':0})));
  		});
   	});
   	tom.getConversation('57d11cefbf22ec005f95feee').then(function(conversation)

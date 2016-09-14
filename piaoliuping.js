@@ -36,17 +36,22 @@ initGiftInfo();
 //创建赌场房间
 AV.Cloud.define('createGameRoom', function(request, response) 
 {
+	//return response.error('error');
 	//并发控制
 	var req = reqCount();
 	var key = "createGameRoom:" + request.params.userID;
 	//并发控制
 	redisClient.incr(key,function( err, id ) 
 	{
+		if(err)
+		{
+			console.log(err);
+			return response.error('访问太过频繁!');
+		}
 		redisClient.expire(key, 2);
 		
 		if(id > 1)
 		{
-			
 			return response.error('访问太过频繁!');
 		}
 	var log = new gameRoomLog();
@@ -101,10 +106,10 @@ AV.Cloud.define('createGameRoom', function(request, response)
     	}
     	else
     	{
-    		if(roomCache.count <= 0)
-    		{
-    			return AV.Promise.error('可创建次数不足!');
-    		}
+    		//if(roomCache.count <= 0)
+    		//{
+    		//	return AV.Promise.error('可创建次数不足!');
+    		//}
     		if(newDay == true)
 			{
 				roomCache.count += 10 * getVipType(data.get('BonusPoint'));
@@ -224,7 +229,7 @@ function checkPetGmabline()
 				log.save();
 			}
 		});
-	});	
+	}).catch(console.log);	
 }
 function checkPackageLog()
 {
@@ -306,11 +311,11 @@ function checkPackageLog()
 				}
 			}
 			//console.log(array);
-			redisClient.setAsync('forbiddenUserID', array.join(","));
+			redisClient.setAsync('forbiddenUserID', array.join(",")).catch(console.log);
 			}
 			else
 			{
-			redisClient.setAsync('forbiddenUserID', users.join(","));
+			redisClient.setAsync('forbiddenUserID', users.join(",")).catch(console.log);
 			}
 		});
 		new AV.Query('auctionItems').containedIn('ownerID', users).find().then(function(results){
@@ -340,7 +345,7 @@ function checkPackageLog()
 				log.save();
 			}
 		});
-	});
+	}).catch(console.log);
 }
 AV.Cloud.define('saveDailyLikeLovers', function(request, response)
 {
@@ -364,10 +369,7 @@ AV.Cloud.define('saveDailyLikeLovers', function(request, response)
 			log.save();
 		}
 		response.success('成功!');
-	},function(error)
-	{
-		response.error('失败!');
-	});
+	}).catch(response.error);
 });
 function getVipType(points)
 {
@@ -415,11 +417,36 @@ function getVipType(points)
 AV.Cloud.define('joinPetGameQueue', function(request, response)
 {
 	//并发控制,根据room来控制,一个room只能发起一次请求
+	//return response.error('访问频繁!');
 	var req = reqCount();
 	var key = "JoingameRoom:" + request.params.roomID;
 	//并发控制
+	redisClient.getAsync("gameLimit:"+request.params.userID).then(function(cacheLimit)
+	{
+		var limit = {};
+		var now = new Date();
+		if(cacheLimit)
+		{
+			limit = JSON.parse(cacheLimit);
+			var date = limit.date.split('-');
+			if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
+			{
+				limit.count = 5;
+			}
+		}
+		else
+		{
+			limit.count = 5;
+		}
+		limit.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
+
 	redisClient.incr(key,function( err, id ) 
 	{
+		if(err)
+		{
+			console.log(err);
+			return response.error('访问频繁!');
+		}
 		redisClient.expire(key, 2);
 		if(id > 1)
 		{
@@ -437,9 +464,12 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	var room ;
 
 	var newDay = 0;
-	redisClient.getAsync('gameRoom:'+request.params.userID).then(function(cache)
+	var roomCache = {count:0};
+	var state = '';
+	redisClient.getAsync('gameRoom:'+userID).then(function(cache)
 	{
-		var roomCache = {};
+		//console.log('进来了'+userID);
+		state += '1';
 		var now = new Date();
 		if(cache)
 		{
@@ -448,19 +478,20 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 			if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
 			{
 				newDay = 1;
-				roomCache.count = 10;
+				roomCache.count = 20;
 			}
 		}
 		else
 		{
 			newDay = 1;
-			roomCache.count = 10;
+			roomCache['count'] = 20;
 		}
-		roomCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
+		roomCache['date'] = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
 		//redisClient.setAsync('gameRoom:'+request.params.userID, JSON.stringify(data));
 
 		return new AV.Query('gameRoom').equalTo('roomID', request.params.roomID).first().then(function(data)
 	{
+		state += '2';
 		if(!data)
 		{
 			return AV.Promise.error('来迟一步,已经被人抢先了!');
@@ -471,11 +502,11 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		if(data.get('placeID') == 5)
 		{
 			diamond = data.get('gambling');
-			if(roomCache.count <= 0)
-			{
-				return AV.Promise.error('可挑战次数不足!');
-			}
-			roomCache.count -= 1;
+			//if(roomCache.count <= 0)
+			//{
+			//	return AV.Promise.error('可挑战次数不足!');
+			//}
+			//roomCache.count -= 1;
 		}
 		else
 		{
@@ -494,16 +525,22 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 			{
 				win = 1;
 			}
+			if(otherID == 89)
+			{
+				win = 0;
+			}
 		return new AV.Query('chatUsers').containedIn('userID', [userID, otherID]).find();
 		}
 		else
 		{
+			state += '3';
 			response.success(nValue);
 			return AV.Promise.error('over');
 		}
 		
 	}).then(function(results)
 	{
+		state += '4';
 		if(results.length != 2)
 		{
 			return AV.Promise.error('查询数据有误!');
@@ -527,7 +564,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				{
 					if(newDay == 1)
 					{
-						roomCache.count += 10 * getVipType(data.get('BonusPoint'));
+						roomCache.count += 20 * getVipType(data.get('BonusPoint'));
 						//console.log(roomCache.count);
 					}
 					//log.set('winDiamondQ', data.get('Diamond'));
@@ -548,14 +585,23 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				{
 					if(newDay == 1)
 					{
-						roomCache.count += 10 * getVipType(data.get('BonusPoint'));
+						roomCache.count += 20 * getVipType(data.get('BonusPoint'));
 						//console.log(roomCache.count);
 					}
 					//log.set('loseDiamondQ', data.get('Diamond'));
 					//log.set('loseGoldNumQ', data.get('goldNum'));
 					if(diamond > 0)
 					{
-						data.increment('Diamond', -1*diamond);
+						var diamondIncre = -1 * diamond;
+						if(limit.count > 0)
+						{
+							diamondIncre = parseInt(-1 *diamond * 0.8);
+							console.log('活动期间:' + userID + ',本该扣除钻石' + diamond +'实际扣除钻石:' + diamondIncre);
+							limit.count -= 1;
+							redisClient.setAsync("gameLimit:"+request.params.userID, JSON.stringify(limit));
+						}
+						data.increment('Diamond', diamondIncre);
+
 					}
 					else
 					{
@@ -582,6 +628,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		return AV.Object.saveAll(results);
 	}).then(function(results)
 	{
+		state += '5';
 		room.destroy();
 		redisClient.set('gameRoom:' + request.params.userID, JSON.stringify(roomCache));
 		log.set('startUserid', userID);
@@ -605,14 +652,28 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		response.success(win);
 	}).catch(function(error) 
 	{
+		state += '6';
 		if(error == 'over')
 		{
-			return;
+			return 'over';
+		}
+		//response.error(error);
+		return 'over';
+  	});
+	}).catch(function(error)
+	{
+		if(error == 'over')
+		{
+			return error;
+		}
+		else
+		{
+			console.log('userID:'+userID+'state:'+state+'error:'+error);
 		}
 		response.error(error);
-  	});
 	});
 	
+});
 });
 });
 
@@ -678,12 +739,12 @@ AV.Cloud.define('SavePetGameInfo',function(request, response)
 				log.save();
 				req[key] = 0;
 				delete req[key];
-				response.success('成功!');
+				return response.success('成功!');
 			}).catch(function(error)
 			{
 				req[key]=0;
 				delete req[key];
-				return response.error('出错!');
+				//return response.error('出错!');
 			});
 			});
 		}
@@ -693,12 +754,13 @@ AV.Cloud.define('SavePetGameInfo',function(request, response)
 			delete req[key];
 			return response.error('出错!');
 		}
-	});
+	}).catch(response.error);
 });
 
 //拍卖上架
 AV.Cloud.define('upItem', function(request, response)
 {
+	//return response.error('访问频繁!');
 	//数值控制
 	if(request.params.price <= 0 || request.params.itemCount <= 0)
 	{
@@ -824,17 +886,18 @@ AV.Cloud.define('upItem', function(request, response)
 		fail.set('itemID', request.params.itemID);
 		fail.set('itemCount', request.params.itemCount);
 		fail.save();
-		return response.error('上架失败!');
+		//return response.error('上架失败!');
 	});
 });
 });
-});
+}).catch(response.error);
 });
 
 //购买或下架
 AV.Cloud.define('buyItem', function(request, response)
 {
 
+	//return response.error('访问频繁!');
 	var reqData = request.params;
 	var key = 'buyItem:'+ request.params.auctionID;
 	//并发控制
@@ -882,8 +945,25 @@ AV.Cloud.define('buyItem', function(request, response)
 		log.set('buyerName', data.get('otherName'));
 		diamond = data.get('floorPrice');
 		auctionItem = data;
-	}).then(function(success)
-	{
+
+		if(reqData.owner == reqData.buyer)
+		{
+			console.log('物品下架!'+reqData.owner);
+			if(checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
+			{
+				redisClient.getAsync('upItemLimit:' + reqData.owner).then(function(cache)
+				{
+					var upCache = JSON.parse(cache);
+					upCache.count += 1;
+					redisClient.setAsync('upItemLimit:' + reqData.owner, JSON.stringify(upCache));
+				});
+			}
+			
+			return AV.Promise.as('The good result.');
+		}
+
+	//}).then(function(success)
+	//{
 		fail.set('step', 2);
 		var query1 = new AV.Query('chatUsers');
   		query1.equalTo('userID', reqData.buyer);
@@ -894,12 +974,13 @@ AV.Cloud.define('buyItem', function(request, response)
 		return query.find();
 	}).then(function(results)
 	{
-		fail.set('step', 3);
 		if(reqData.owner == reqData.buyer)
 		{
 			fail.set('action', "下架物品");
 			return AV.Promise.as('The good result.');
 		}
+		fail.set('step', 3);
+		
 		for (var i = 0; i < results.length; i++)
 		{
 			var obj = results[i];
@@ -1152,6 +1233,10 @@ AV.Cloud.define('petRankFight', function(request, response)
 	//并发控制
 	redisClient.incr(key,function( err, id ) 
 	{
+		if(err)
+		{
+			return response.error('error');
+		}
 		redisClient.expire(key, 300);
 		if(id > 1)
 		{
@@ -1480,11 +1565,12 @@ Date.prototype.Format = function (fmt) {
 
 AV.Cloud.define('sendGift', function(request, response)
 {	
+	//return response.error('error');
 	var userID = request.params.userID;
 	var giftID = request.params.giftID;
 	var toID = request.params.toID;
 	var log = new GiftSendLog();
-	var vipprice = [1.0,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.55,0.5];
+	var vipprice = [1.0,0.9,0.85,0.8,0.75,0.7,0.65,0.6,0.55,0.5,0.5,0.5,0.5];
 	var step = 0;
 	var gift = new AV.Object(JSON.parse(giftInfo[request.params.giftID]), {parse: true});
 	var toUserName = '';
@@ -1492,7 +1578,7 @@ AV.Cloud.define('sendGift', function(request, response)
 	var diamondSend = 0;
 	var loverIncrease = 1.0;
 	var key = "sendGift:"+userID;
-//并发控制
+	//并发控制
 	redisClient.incr(key,function( err, id ) 
 	{
 		redisClient.expire(key, 2);
@@ -1500,7 +1586,7 @@ AV.Cloud.define('sendGift', function(request, response)
 		{
 			return response.error('送礼失败!');
 		}
-	return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
 		{
 			if(!data)
 		{
@@ -1512,9 +1598,11 @@ AV.Cloud.define('sendGift', function(request, response)
 		}
 		var needGold = gift.get('Gold') || 0;
 		var needDiamond = gift.get('Diamond')||0;
-		needGold *= vipprice[data.get('VIPType')];
-		needDiamond *= vipprice[data.get('VIPType')];
-
+		if(gift.get('Charm') > 0)
+		{
+			needGold *= vipprice[data.get('VIPType')];
+			needDiamond *= vipprice[data.get('VIPType')];
+		}
 		if (needGold > 0 && data.get('goldNum') < needGold) {
 			return AV.Promise.error('金币不足');
 		}
@@ -1606,52 +1694,57 @@ AV.Cloud.define('sendGift', function(request, response)
 			return log.save();
 		}).then(function(success)
 		{
+			var recv = new AV.Query('GiftRecv');
+			recv.equalTo('userid', toID);
+			recv.equalTo('giftid', giftID);
+			console.log('GiftRecv'+toID+"gift:"+giftID);
+			return recv.first();
+		}).then(function(data)
+		{
+			if(data)
+			{
+				data.increment('count', 1);
+				return data.save();
+			}
+			else
+			{
+				var giftrec = new GiftRecv();
+				giftrec.set('userid', toID);
+				giftrec.set('giftid', giftID);
+				giftrec.set('giftName', gift.get('giftName'));
+				giftrec.set('count', 1);
+				return giftrec.save();
+			}
+		}).then(function(success)
+		{
 			var query = new AV.Query('GiftSend');
 			query.equalTo('userid', userID);
 			query.equalTo('giftid', giftID);
-			query.first().then(function(data)
+			console.log('giftSend'+userID+"gift:"+giftID);
+			return query.first();
+		}).then(function(data)
+		{
+			if(data)
 			{
-				if(data)
-				{
-					data.increment('count', 1);
-					data.save();
-				}
-				else
-				{
-					var send = new GiftSend();
-					send.set('userid', userID);
-					send.set('giftid', giftID);
-					send.set('giftName', gift.get('giftName'));
-					send.set('count', 1);
-					send.save();
-				}
-			});
-			var giftrecv = new AV.Query('GiftRecv');
-			giftrecv.equalTo('userid', toID);
-			giftrecv.equalTo('giftid', giftID);
-			giftrecv.first().then(function(data)
+				data.increment('count', 1);
+				return data.save();
+			}
+			else
 			{
-				if(data)
-				{
-					data.increment('count', 1);
-					data.save();
-				}
-				else
-				{
-					var send = new GiftRecv();
-					send.set('userid', userID);
-					send.set('giftid', giftID);
-					send.set('giftName', gift.get('giftName'));
-					send.set('count', 1);
-					send.save();
-				}
-			});
+				var send = new GiftSend();
+				send.set('userid', userID);
+				send.set('giftid', giftID);
+				send.set('giftName', gift.get('giftName'));
+				send.set('count', 1);
+				return send.save();
+			}
+		}).then(function(success)
+		{
 			response.success({'userName':toUserName,'goldSend':goldSend,'diamondSend':diamondSend});
-
 		}).catch(function(error)
 		{
 			log.save();
-			response.error('发送失败!');
+			response.error(error);
 		});
 	});
 });
@@ -2093,7 +2186,8 @@ AV.Cloud.define('UseItem', function(req, res)
 		if(newItem > 0)
 		{
 			res.success({'itemID':newItem});
-		}else{
+		}else
+		{
 			res.success({'itemID':petGift[item.toString()]['item'], 'itemCount':petGift[item.toString()]['itemCount']});
 		}
 	}).catch(function(error)
@@ -2167,6 +2261,9 @@ AV.Cloud.define('clientHeart', function(req, response)
 			redisClient.setAsync(clientKey(userID), JSON.stringify(data));
 			response.error('成功!');
 		}
+	}).catch(function(error)
+	{
+		response.error(error);
 	});
 });
 function clientKey(userID)
@@ -2193,9 +2290,9 @@ AV.Cloud.define('userEvaluate', function(request, response)
 			}
 			else
 			{
-				response.error('未查询到数据!');
+				return response.error('未查询到数据!');
 			}
-		});
+		}).catch(response.error);
 });
 
 AV.Cloud.define('saveUUID', function(request, response)
@@ -2203,6 +2300,7 @@ AV.Cloud.define('saveUUID', function(request, response)
 	var userID = request.params.userID;
 	var uuid = request.params.uuid;
 	redisClient.setAsync("UUID:"+userID, uuid);
+	response.success('');
 });
 
 AV.Cloud.define('getDeviceRight', function(request, response)
@@ -2215,40 +2313,17 @@ AV.Cloud.define('getDeviceRight', function(request, response)
 		{
 			if(cache == uuid)
 			{
-				response.success('success');
+				return response.success('success');
 			}
 			else
 			{
-				response.error('出错!');
+				return response.error('出错!');
 			}
 		}
 		else{
-			response.error('出错!');
+			return response.error('出错!');
 		}
-	});
-});
-
-AV.Cloud.define('checkSexImage', function(request, response)
-{
-	var url = request.params.url;
-	var objectId = request.params.objectId;
-	var tupu = new TUPU('57cd125b1b36505d074c8e31', "./lib/pkcs8_private_key.pem", { domain: 'api.open.tuputech.com', timeout: 10 * 1000 });
-	var testUrls = [url];
-	console.log(objectId);
-	tupu.byURLs(testUrls, function (data) 
-	{
-    	if(data.message == 'success')
-    	{
-    		if(data['54bcfc6c329af61034f7c2fc']['statistic'][0] == 1)//色情图片需要删除
-    		{
-    			response.success('色情图片!');
-    			console.log('色情图片:'+objectId);
-    			var file = AV.File.createWithoutData(objectId);
-  				return file.destroy();
-    		}
-    	}
-    	response.error("error");
-	});
+	}).catch(response.error);
 });
 
 AV.Cloud.define('increaseGroupActive', function(request, response)
@@ -2259,6 +2334,7 @@ AV.Cloud.define('increaseGroupActive', function(request, response)
 	{
 		redisClient.expire(key, 3600 * 23);//23小时自动销毁
 	});
+	response.success('');
 });
 function groupKey(value, hour)
 {
@@ -2292,7 +2368,7 @@ AV.Cloud.define('getGroupInfo', function(request, response)
            					{
            						active = parseInt(value * 0.5);
            					}
-           					else if(hour - groupHour <= 6)
+           					else if(hour - groupHour <= 6 && hour - groupHour > 0)
            					{
            						active = parseInt(value * 0.1);
            					}
@@ -2317,7 +2393,7 @@ AV.Cloud.define('getGroupInfo', function(request, response)
             			{
             				needSort.sort(function(a,b){return b.active - a.active});
             				response.success(needSort.slice(0, 100));
-            				console.log(needSort);
+            				//console.log(needSort);
            				}
             		});
          	 	})(key);
@@ -2344,10 +2420,98 @@ AV.Cloud.define('delGroupActive', function(request, response)
         	var array = eval(keys);
         	for (var i = array.length - 1; i >= 0; i--) 
         	{
-        		redisClient.delAsync(array[i]);
+        		redisClient.delAsync(array[i]).catch(console.error);
         	}
         }
     });
+});
+
+AV.Cloud.define('dealSomething', function(request, response)
+{
+	var query = new AV.Query('GiftRecv');
+	var date = new Date();
+	date.setDate(11);
+	query.descending('userid');
+	query.descending('createdAt');
+	query.limit(1000);
+	var giftrec = new Array();
+	query.find().then(function(results)
+	{
+		console.log(results.length);
+		for (var i = results.length - 1; i >= 0; i--) 
+		{
+			var data = results[i];
+			var has = false;
+			for (var j = giftrec.length - 1; j >= 0; j--) {
+				if(data.get('giftid') == giftrec[j].giftid && data.get('userid') == giftrec[j].userid)
+				{
+					has = true;
+					giftrec[j].count += data.get('count');
+				}
+			}
+			if(has == false)
+			{
+				giftrec.push({giftid:data.get('giftid'),userid:data.get('userid'),count:data.get('count')});
+			}
+		}
+		//console.log(giftrec.length);
+		console.log(giftrec);
+	});
+});
+
+AV.Cloud.define('endMarriageNoGold', function(request, response)
+{
+	var userID = request.params.userID;
+	var other = 0;
+	
+	var query1 = new AV.Query('chatUsers');
+  	query1.equalTo('userID', userID);
+
+  	var query2 = new AV.Query('chatUsers');
+  	query2.equalTo('lover', userID);
+  	return AV.Query.or(query1, query2).find().then(function(results)
+	{
+		for (var i = results.length - 1; i >= 0; i--)
+		 {
+		 	var data = results[i];
+		 	if(data.get('userID') != userID)
+		 	{
+		 		other = data.get('userID');
+		 	}
+			data.set('lover', 0);
+		}
+		return AV.Object.saveAll(results);
+	
+	}).then(function(success)
+	{
+		var query1 = new AV.Query('marryApply');
+  		query1.equalTo('applyID', userID);
+
+  		var query2 = new AV.Query('marryApply');
+  		query2.equalTo('replyID', userID);
+		return AV.Query.or(query1, query2).find();
+
+	}).then(function(results)
+	{
+		return AV.Object.destroyAll(results);
+	}).then(function(success)
+	{
+		var query1 = new AV.Query('marryUsers');
+  		query1.equalTo('wife', userID);
+
+  		var query2 = new AV.Query('marryUsers');
+  		query2.equalTo('husband', userID);
+  		return AV.Query.or(query1, query2).find();
+	}).then(function(results)
+	{
+		return AV.Object.destroyAll(results);
+	}).then(function(success)
+	{
+		return response.success('离婚离婚成功!');
+	}).catch(function(error)
+	{
+		return response.error('离婚失败!');
+	});
 });
 
 

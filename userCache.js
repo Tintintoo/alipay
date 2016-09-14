@@ -142,6 +142,9 @@ AV.Cloud.define('getPetSys', function(request, response)
     {
       response.error('查询出错!');
     }
+  }).catch(function(error)
+  {
+    response.error(error);
   });
 });
 
@@ -163,6 +166,9 @@ AV.Cloud.define('getGiftInfo', function(request, response)
     {
       response.error('查询出错!');
     }
+  }).catch(function(error)
+  {
+    return response.error('查询失败!');
   });
 });
 
@@ -170,15 +176,15 @@ AV.Cloud.define('getGiftHistory', function(request, response)
 {
 
   var key = request.params.table+request.params.userID;
-  return redisClient.getAsync(key).then(function(cachedUser) 
-  {
-     if (cachedUser) 
-    {
-      var data = JSON.parse(cachedUser);
-      response.success(data);
-    }
-    else
-    {
+  //return redisClient.getAsync(key).then(function(cachedUser) 
+  //{
+  //   if (cachedUser) 
+  //  {
+  //    var data = JSON.parse(cachedUser);
+  //    response.success(data);
+  //  }
+  //  else
+  //  {
       //从数据库初始化
       new AV.Query(request.params.table).equalTo('userid',request.params.userID).find().then(function(results)
       {
@@ -187,11 +193,15 @@ AV.Cloud.define('getGiftHistory', function(request, response)
         {
           data[results[i].get('giftid')] = {'giftName':results[i].get('giftName'), 'count':results[i].get('count')};
         }
+        //console.log(data);
         response.success(data);
         redisClient.setAsync(key, JSON.stringify(data)).catch(console.error);
+      }).catch(function(error)
+      {
+        response.error(error);
       });
-    }
-  });
+   // }
+  //});
 });
 AV.Cloud.afterUpdate('GiftRecv', function(request) 
 {
@@ -246,47 +256,51 @@ AV.Cloud.define('getUserPetSize', function(request, response)
       response.success(data);
       redisClient.setAsync(key, 3).catch(console.error);
     }
+  }).catch(function(error)
+  {
+    response.error('失败!');
   });
 });
 
 AV.Cloud.define('expandPetSize',function(request, response)
 {
-  return response.error('失败!'); 
+  //return response.error('失败!'); 
   var key = 'petSize:'+ request.params.userID;
-   redisClient.getAsync(key).then(function(cache) 
+  redisClient.getAsync(key).then(function(cache) 
   {
     var diamond = 0;
     var oldSize = parseInt(cache) || 3;
     if(cache)
     {
       diamond = (oldSize-2) * 60;
-      redisClient.setAsync(key, oldSize + 1).catch(console.error);
+      //redisClient.setAsync(key, oldSize + 1).catch(console.error);
     }
     else
     {
       diamond = 60;
-      redisClient.setAsync(key, 4).catch(console.error);
+      //redisClient.setAsync(key, 4).catch(console.error);
     }
-    new AV.Query('chatUsers').equalTo('userID', request.params.userID).first(function(data)
+    return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
     {
         if(diamond <= 0)
         {
           diamond = 60;
+        }
+        if(data.get('Diamond') < diamond)
+        {
+          return AV.Promise.error('开通失败!');
         }
         data.increment('Diamond', -1*diamond);
         data.fetchWhenSave(true);
         return data.save();
     }).then(function(data)
     {
-      if(data.get('Diamond') < 0)
-      {
-        redisClient.setAsync(key, oldSize).catch(console.error);
-      }
-      else
-      {
-       oldSize += 1;
-      }
+      oldSize += 1;
+      redisClient.setAsync(key, oldSize).catch(console.error);
       response.success(oldSize);
+    }).catch(function(error)
+    {
+      response.error(error);
     });
   });
 });
@@ -424,9 +438,12 @@ AV.Cloud.define('getMedalInfo',function(request, response)
         {
           response.success(saveMedalToCache(data, getMedalFields()));
         }
-      });
+      })//.catch(response.error);
     }
   //});
+  }).catch(function(error)
+  {
+    response.error(error);
   });
   
 });
@@ -443,6 +460,7 @@ AV.Cloud.define('saveMedalInfo',function(request, response)
   setTimeout(saveCharmRank(), 40000);
   setTimeout(saveGoodRank(), 60000);
   setTimeout(saveHouseRank(), 80000);
+  response.success('完成!');
 });
 AV.Cloud.define('joinLoverWorld', function(request, response)
 {
@@ -477,22 +495,21 @@ AV.Cloud.define('joinLoverWorld', function(request, response)
       redisClient.setAsync(array[0], JSON.stringify(data));
       redisClient.setAsync(array[1], JSON.stringify(data2));
       return response.success('success');
-    })
-
-  });
+    });
+  }).catch(response.error);
 });
 AV.Cloud.define('getLoverWorldInfo', function(request, response){
   return redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
   {
     if(info)
     {
-      response.success(JSON.parse(info));
+      return response.success(JSON.parse(info));
     }
     else
     {
-      response.error('没有');
+      return response.error('没有');
     }
-  });
+  }).catch(response.error);
 });
 AV.Cloud.define('changeLoverWorldTheme', function(request, response)
 {
@@ -504,7 +521,8 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
       var data = JSON.parse(info);
       data.theme = request.params.theme;
       var hastheme = false;
-      for (var i = data.hastheme.length - 1; i >= 0; i--) {
+      for (var i = data.hastheme.length - 1; i >= 0; i--)
+       {
         if (data.hastheme[i] == request.params.theme)
         {
           hastheme = true;
@@ -562,7 +580,7 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
           }).catch(function(error)
           {
             log.save();
-            response.error('失败!');
+            //response.error('失败!');
           });
       }
       else
@@ -581,7 +599,7 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
       }
       
     }
-  });
+  }).catch(response.error);
 });
 AV.Cloud.define('delLoverWorldInfo', function(request, response){
     redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
@@ -609,14 +627,14 @@ AV.Cloud.define('delLoverWorldInfo', function(request, response){
         {
           response.error('解除失败!');
         }
-      });
+      })//.catch(response.error);
       
     }
     else
     {
       response.error('解除失败!');
     }
-  });
+  }).catch(response.error);
 });
 AV.Cloud.define('sendLoverWorldMessage', function(request, response){
   return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
@@ -646,11 +664,12 @@ AV.Cloud.define('sendLoverWorldMessage', function(request, response){
           var data = JSON.parse(info);
           data.intimacy += 1;
           redisClient.setAsync(key2, JSON.stringify(data));
-        });
+          response.success('');
+        })//.catch(response.error);
       }
       else
       {
-        //response.error('没查到数据!');
+        response.error('没查到数据!');
         //console.log('没查到数据!');
       }
     });

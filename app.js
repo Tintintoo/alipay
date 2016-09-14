@@ -6,6 +6,7 @@ var cloud = require('./cloud');
 var piaoliuping = require('./piaoliuping');
 var cache = require('./userCache');
 var message = require('./message');
+var imageCheck = require('./imageCheck');
 
 var app = express();
 
@@ -17,6 +18,7 @@ app.use(cloud);
 app.use(piaoliuping);
 app.use(message);
 app.use(cache);
+app.use(imageCheck);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
