@@ -7,6 +7,7 @@ var piaoliuping = require('./piaoliuping');
 var cache = require('./userCache');
 var message = require('./message');
 var imageCheck = require('./imageCheck');
+var token = require('./token');
 
 var app = express();
 
@@ -19,6 +20,7 @@ app.use(piaoliuping);
 app.use(message);
 app.use(cache);
 app.use(imageCheck);
+app.use(token);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));

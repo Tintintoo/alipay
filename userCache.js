@@ -280,7 +280,17 @@ AV.Cloud.define('expandPetSize',function(request, response)
       diamond = 60;
       //redisClient.setAsync(key, 4).catch(console.error);
     }
-    return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
+    return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+    { 
+      if(!cache || cache != request.params.token)
+      {
+        if(global.isReview == 0)
+        {
+          return AV.Promise.error('访问失败!');
+        }
+      }
+      return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first();
+    }).then(function(data)
     {
         if(diamond <= 0)
         {
@@ -511,6 +521,7 @@ AV.Cloud.define('getLoverWorldInfo', function(request, response){
     }
   }).catch(response.error);
 });
+
 AV.Cloud.define('changeLoverWorldTheme', function(request, response)
 {
   var log = new global.moneyLog();
@@ -601,8 +612,19 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
     }
   }).catch(response.error);
 });
-AV.Cloud.define('delLoverWorldInfo', function(request, response){
-    redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
+AV.Cloud.define('delLoverWorldInfo', function(request, response)
+{
+  return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+  { 
+    if(!cache || cache != request.params.token)
+    {
+      if(global.isReview == 0)
+      {
+        return AV.Promise.error('访问失败!');
+      }
+    }
+    return redisClient.getAsync(LoverWorldKey(request.params.userID));
+  }).then(function(info)
   {
     if(info)
     {
@@ -612,23 +634,22 @@ AV.Cloud.define('delLoverWorldInfo', function(request, response){
       data.other = 0;
       data.intimacy = 0;
       redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
-      redisClient.getAsync(key2).then(function(info)
-      {
-        if(info)
-        {
-          var data = JSON.parse(info);
-          data.theme = 0;
-          data.other = 0;
-          data.intimacy = 0;
-          redisClient.setAsync(key2, JSON.stringify(data));
-          response.success('解除成功!');
-        }
-        else
-        {
-          response.error('解除失败!');
-        }
-      })//.catch(response.error);
-      
+      return redisClient.getAsync(key2);//.catch(response.error);
+    }
+    else
+    {
+      return AV.Promise.error('解除失败!');
+    }
+  }).then(function(info)
+  {
+    if(info)
+    {
+      var data = JSON.parse(info);
+      data.theme = 0;
+      data.other = 0;
+      data.intimacy = 0;
+      redisClient.setAsync(key2, JSON.stringify(data));
+      response.success('解除成功!');
     }
     else
     {

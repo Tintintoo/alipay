@@ -6,6 +6,7 @@ var APP_KEY = process.env.LEANCLOUD_APP_KEY|| '0gdj48papdbw5qisfzq1wr4lmlzzpp6eb
 var MASTER_KEY = process.env.LEANCLOUD_APP_MASTER_KEY|| 'j1vyg8hkoqfq2bul6n4ontu2yspylq7lk8nzjsi14ywbfo5r';
 
 AV.initialize(APP_ID, APP_KEY, MASTER_KEY);
+AV.Cloud.useMasterKey();
 
 var app = require('./app');
 

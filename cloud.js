@@ -2,6 +2,9 @@ var AV = require('leanengine');
 var WXPay = require('./lib/wxpay');
 var util = require('./lib/util');
 //var reqCount = reqire('./reqCount');
+var IAPInfo = AV.Object.extend('IAPInfo');
+var piaoliuping = require('./piaoliuping');
+var common = require('./common');
 /**
  * 一个简单的云代码方法
  */
@@ -271,10 +274,104 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
 });
 
 });
-
+function getProductInfo(identify)
+{
+  if(identify == 'com.starfire.intheworld.goldNum100')
+  {
+   return {goldNum:100,goldMax:100, money:1};
+  }
+  else if(identify == 'com.starfire.intheworld.gold1500')
+  {
+    return {goldNum:1500, goldMax:1500, money:12};
+  }
+  else if(identify == 'com.starfire.intheworld.gold8000')
+  {
+    return {goldNum:8000, goldMax:8000, money:68};
+  }
+  else if(identify == 'com.starfire.intheworld.gold600')
+  {
+    return {goldNum:600, goldMax:600, money:6};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond6')
+  {
+    return {diamond:6, goldNum:600, money:6};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond20')
+  {
+    return {diamond:20, goldNum:2000, money:18};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond80')
+  {
+    return {diamond:80, goldNum:8000, money:68};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond120')
+  {
+    return {diamond:120, goldNum:12000, money:98};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond200')
+  {
+    return {diamond:200, goldNum:20000, money:168};
+  }
+  else if(identify == 'com.starfire.intheworld.diamond600_1')
+  {
+    return {diamond:600, goldNum:60000, money:468};
+  }
+  else
+  {
+    return {};
+  }
+}
 AV.Cloud.define('payCheck', function(request, response)
 {
-  AV.Cloud.httpRequest({
+  var vip = [1.0, 1.05, 1.08, 1.12, 1.18, 1.25, 1.33, 1.42, 1.52, 1.63, 1.63, 1.63, 1.63];
+  var version = request.params.version;
+  if(version == 0)
+  {
+      var identify = request.params.identifier;
+      var product = getProductInfo(identify);
+      if(!product.goldNum && !product.goldMax && !product.diamond)
+      {
+        return response.error('查询失败,请联系客服!');
+      }
+      var goldNum = product.goldNum || 0;
+      var goldMax = product.goldMax || 0;
+      var Diamond = product.diamond || 0;
+      var money = product.money || 0;
+      return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
+      {
+        if(!data)
+        {
+          return response.error('用户读取失败!');
+        }
+        var increase = vip[common.getVipType(data.get('BonusPoint'))];
+        goldNum = parseInt(goldNum*increase);
+        Diamond = parseInt(Diamond * increase);
+        goldMax = parseInt(goldMax * increase);
+        data.increment('goldNum', goldNum);
+        data.increment('goldMax', goldMax);
+        data.increment('Diamond', Diamond);
+        data.increment('BonusPoint', money);
+        return data.save();
+      }).then(function(success)
+      {
+        response.success({'goldNum':goldNum, 'goldMax':goldMax, 'Diamond':Diamond});
+        var log = new IAPInfo();
+        log.set('userid', request.params.userID);
+        log.set('product', identify);
+        log.set('goldNum', goldNum);
+        log.set('Diamond', Diamond);
+        log.set('goldMax', goldMax);
+        log.set('version', version);
+        log.set('money', money);
+        log.save();
+      }).catch(function(error)
+      {
+        return response.error('查询用户失败!');
+      });
+  }
+  else
+  {
+    AV.Cloud.httpRequest({
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
@@ -282,13 +379,64 @@ AV.Cloud.define('payCheck', function(request, response)
   url: request.params.url,
   body: request.params.receiptdata,
   success: function(httpResponse) {
-    console.log('Request succ ' + httpResponse.text);
-    response.success(httpResponse.text);
+    if(!version)
+    {
+      console.log('Request succ ' + httpResponse.text);
+      response.success(httpResponse.text);
+    }
+    else if(version == 1)
+    {
+      var data = JSON.parse(httpResponse.text);
+      var identify = data.product_id;
+      var product = getProductInfo(identify);
+      if(!product.goldNum && !product.goldMax && !product.diamond && !product.money){
+        return response.error('查询失败,请联系客服!');
+      }
+      var goldNum = product.goldNum || 0;
+      var goldMax = product.goldMax || 0;
+      var Diamond = product.diamond || 0;
+      var money = product.money || 0;
+      return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
+      {
+        if(!data)
+        {
+          return response.error('用户读取失败!');
+        }
+        var increase = vip[common.getVipType(data.get('BonusPoint'))];
+        goldNum = parseInt(goldNum*increase);
+        Diamond = parseInt(Diamond * increase);
+        goldMax = parseInt(goldMax * increase);
+        data.increment('goldNum', goldNum);
+        data.increment('goldMax', goldMax);
+        data.increment('Diamond', Diamond);
+        data.increment('BonusPoint', money);
+        return data.save();
+      }).then(function(success)
+      {
+        response.success({'goldNum':goldNum, 'goldMax':goldMax, 'Diamond':Diamond});
+        var log = new IAPInfo();
+        log.set('userid', request.params.userID);
+        log.set('product', request.params.identify);
+        log.set('goldNum', goldNum);
+        log.set('Diamond', Diamond);
+        log.set('goldMax', goldMax);
+        log.set('version', version);
+        log.set('money', money);
+        log.save();
+      }).catch(function(error)
+      {
+        return response.error('查询用户失败!');
+      });
+    }
+   
   },
   error: function(httpResponse) {
     console.error('Request failed with response code ' + httpResponse.status);
+    response.error(httpResponse.status);
   }
 });
+  }
+  
 });
 
 AV.Cloud.define('clearQD', function(request, response) {

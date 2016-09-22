@@ -8,6 +8,7 @@ function reqCount()
 	return global.reqCenter;
 }
 var redisClient = require('./redis').redisClient;
+var common = require('./common');
 
 var gameRoom = AV.Object.extend('gameRoom');
 var gameRoomLog = AV.Object.extend('gameRoomLog');
@@ -26,13 +27,13 @@ var acutionLog = AV.Object.extend('acutionLog');
 var package = AV.Object.extend('package');
 var landLog = AV.Object.extend('landLog');
 var failLog = AV.Object.extend('failLog');
-
-
-var giftInfo = {};
+global.giftInfo = {};
 var seedrandom = require('seedrandom');
 
+//是否在审核状态,审核状态不做处理
+global.isReview = 1;
 
-initGiftInfo();
+common.initGiftInfo();
 
 //创建赌场房间
 AV.Cloud.define('createGameRoom', function(request, response) 
@@ -46,7 +47,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
 	var req = reqCount();
 	var key = "createGameRoom:" + request.params.userID;
 	//并发控制
-	redisClient.incr(key,function( err, id ) 
+	redisClient.incr(key,function(err, id) 
 	{
 		if(err)
 		{
@@ -77,10 +78,21 @@ AV.Cloud.define('createGameRoom', function(request, response)
     var roomID = 0;
 
     var newDay = false;
-    redisClient.getAsync('gameRoom:'+request.params.userID).then(function(cache)
+    var roomCache = {};
+	var now = new Date();
+
+    return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return redisClient.getAsync('gameRoom:'+request.params.userID);
+	}).then(function(cache)
 	{
-		var roomCache = {};
-		var now = new Date();
 		if(cache)
 		{
 			roomCache = JSON.parse(cache);
@@ -98,7 +110,8 @@ AV.Cloud.define('createGameRoom', function(request, response)
 		}
 		roomCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
 
-    query.first().then(function (data)
+    	return query.first();
+	}).then(function (data)
     {
     	if(place < 5)
     	{
@@ -117,7 +130,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		//}
     		if(newDay == true)
 			{
-				roomCache.count += 10 * getVipType(data.get('BonusPoint'));
+				roomCache.count += 10 * common.getVipType(data.get('BonusPoint'));
 				//console.log(roomCache.count);
 			}
     		roomCache.count -= 1;
@@ -154,7 +167,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
 		return response.error(error);
     });
 });
-});
     
 });
 //挑战异常检测
@@ -170,6 +182,44 @@ AV.Cloud.define('createGameRoom', function(request, response)
  	checkPackageLog();
 	checkUserError();
  }, 60000);
+
+var giftSkip = 0;
+var checkGiftInfo = setInterval(function()
+{
+	console.log('定时检测送礼异常!');
+	clearInterval(checkGiftInfo);
+
+	var query = new AV.Query('GiftSendLog');
+	query.skip(giftSkip);
+	giftSkip += 1000;
+	query.limit(1000);
+	query.containedIn('giftid',[26,89,890,21,88,480]);
+	query.descending('createdAt');
+	var ids = new Array();
+	return query.find().then(function(results)
+	{
+		for (var i = results.length - 1; i >= 0; i--) {
+			var data = results[i];
+			if(data.get('goldAfter') >= data.get('goldBefore') && data.get('diamondAfter') >= data.get('diamondBefore'))
+			{
+				var has = false;
+				for(var j = 0; j < ids.length; j++)
+				{
+					if(ids[j] == data.get('fromID'))
+					{
+						has = true;
+					}
+				}
+				if(has == false)
+				{
+					ids.push(data.get('fromID'));
+				}
+			}
+		}
+		console.log(ids);
+	});
+}, 10000);
+
  function checkUserError()
  {
 	 console.log('定时检测用户异常！');
@@ -417,48 +467,7 @@ AV.Cloud.define('saveDailyLikeLovers', function(request, response)
 		response.success('成功!');
 	}).catch(response.error);
 });
-function getVipType(points)
-{
-	if(points <= 0)
-	{	
-        return 0;
-    }
-    else if(points < 100)
-   	{
-        return 1;
-    }
-    else if(points < 500)
-    {
-        return 2;
-     }else if(points < 1500)
-     {
-        return 3;
-     }
-    else if(points < 5000)
-    {
-        return 4;
-    }
-    else if(points < 10000)
-    {
-       	return 5;
-    }
-    else if(points < 20000)
-    {
-        return 6;
-    }
-    else if(points < 40000)
-    {
-        return 7;
-    }
-    else if(points < 70000)
-    {
-        return 8;
-    }
-    else
-    {
-        return 9;
-    }
-}
+
 //挑战房间
 AV.Cloud.define('joinPetGameQueue', function(request, response)
 {
@@ -471,35 +480,36 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	var req = reqCount();
 	var key = "JoingameRoom:" + request.params.roomID;
 	//并发控制
-	redisClient.getAsync("gameLimit:"+request.params.userID).then(function(cacheLimit)
-	{
-		var limit = {};
-		var now = new Date();
-		if(cacheLimit)
-		{
-			limit = JSON.parse(cacheLimit);
-			var date = limit.date.split('-');
-			if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
-			{
-				limit.count = 5;
-			}
-		}
-		else
-		{
-			limit.count = 5;
-		}
-		limit.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
-
+	//redisClient.getAsync("gameLimit:"+request.params.userID).then(function(cacheLimit)
+	//{
+	///	var limit = {};
+	//	var now = new Date();
+	//	if(cacheLimit)
+	//	{
+	//		limit = JSON.parse(cacheLimit);
+	//		var date = limit.date.split('-');
+	//		if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
+	//		{
+	//			limit.count = 5;
+	//		}
+	//	}
+	//	else
+	//	{
+	//		limit.count = 5;
+	//	}
+	//	limit.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate()
 	redisClient.incr(key,function( err, id ) 
 	{
+		//console.log('第'+(step++)+"步");
 		if(err)
 		{
-			console.log(err);
+			//console.log('第'+(step++)+"步");
 			return response.error('访问频繁!');
 		}
 		redisClient.expire(key, 2);
 		if(id > 1)
 		{
+			//console.log('第'+(step++)+"步");
 			return response.error('来迟一步,已经被人抢先了!');
 		}
 	//存储键值对到魂村服务器
@@ -516,10 +526,20 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	var newDay = 0;
 	var roomCache = {count:0};
 	var state = '';
-	redisClient.getAsync('gameRoom:'+userID).then(function(cache)
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return redisClient.getAsync('gameRoom:'+userID);
+	}).then(function(cache)
 	{
-		//console.log('进来了'+userID);
 		state += '1';
+		//console.log('第'+state+"步");
 		var now = new Date();
 		if(cache)
 		{
@@ -539,9 +559,11 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		roomCache['date'] = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
 		//redisClient.setAsync('gameRoom:'+request.params.userID, JSON.stringify(data));
 
-		return new AV.Query('gameRoom').equalTo('roomID', request.params.roomID).first().then(function(data)
+		return new AV.Query('gameRoom').equalTo('roomID', request.params.roomID).first();
+	}).then(function(data)
 	{
 		state += '2';
+		//console.log('第'+state+"步");
 		if(!data)
 		{
 			return AV.Promise.error('来迟一步,已经被人抢先了!');
@@ -566,12 +588,13 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		//return data.destroy();
 	//}).then(function(success)
 	//{
-		var nValue = parseInt(Math.random()*10);
+		var nValue = parseInt(Math.random() * 10);
+		console.log(nValue);
 		if (request.params.newversion == 1 )
 		{
 			//新版本直接根据结果
 			win = nValue%2;
-			if(userID == 415509 && nValue%3 != 0)
+			if(userID == 415509 && nValue%5 != 1)
 			{
 				win = 1;
 			}
@@ -591,6 +614,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	}).then(function(results)
 	{
 		state += '4';
+		//console.log('第'+state+"步");
 		if(results.length != 2)
 		{
 			return AV.Promise.error('查询数据有误!');
@@ -614,7 +638,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				{
 					if(newDay == 1)
 					{
-						roomCache.count += 20 * getVipType(object.get('BonusPoint'));
+						roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
 						//console.log(roomCache.count);
 					}
 					log.set('winDiamondQ', object.get('Diamond'));
@@ -635,7 +659,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				{
 					if(newDay == 1)
 					{
-						roomCache.count += 20 * getVipType(object.get('BonusPoint'));
+						roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
 						//console.log(roomCache.count);
 					}
 					log.set('loseDiamondQ', object.get('Diamond'));
@@ -643,13 +667,13 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 					if(diamond > 0)
 					{
 						var diamondIncre = -1 * diamond;
-						if(limit.count > 0)
-						{
-							diamondIncre = parseInt(-1 *diamond * 0.8);
-							console.log('活动期间:' + userID + ',本该扣除钻石' + diamond +'实际扣除钻石:' + diamondIncre);
-							limit.count -= 1;
-							redisClient.setAsync("gameLimit:"+request.params.userID, JSON.stringify(limit));
-						}
+						//if(limit.count > 0)
+						//{
+						//	diamondIncre = parseInt(-1 *diamond * 0.8);
+						//	console.log('活动期间:' + userID + ',本该扣除钻石' + diamond +'实际扣除钻石:' + diamondIncre);
+						//	limit.count -= 1;
+						//	redisClient.setAsync("gameLimit:"+request.params.userID, JSON.stringify(limit));
+						//}
 						object.increment('Diamond', diamondIncre);
 
 					}
@@ -679,6 +703,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	}).then(function(results)
 	{
 		state += '5';
+		//console.log('第'+state+"步");
 		room.destroy();
 		redisClient.set('gameRoom:' + request.params.userID, JSON.stringify(roomCache));
 		log.set('startUserid', userID);
@@ -701,110 +726,16 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		log.save();
 		response.success(win);
 	}).catch(function(error) 
-	{
+	{	
 		state += '6';
+		//console.log('第'+state+"步");
 		if(error == 'over')
 		{
 			return 'over';
 		}
-		//response.error(error);
-		return 'over';
+		return response.error('来迟一步,已经被人抢先了');
   	});
-	}).catch(function(error)
-	{
-		if(error == 'over')
-		{
-			return error;
-		}
-		else
-		{
-			console.log('userID:'+userID+'state:'+state+'error:'+error);
-		}
-		response.error(error);
-	});
-	
 });
-});
-});
-
-AV.Cloud.define('SavePetGameInfo',function(request, response)
-{
-	var key = 'savePetGame' + request.params.roomID;
-	if(req[key] && req[key] > 0)
-	{
-		return response.error('出错!');
-	}
-	req['savePetGame'+request.params.roomID] = 1;
-	redisClient.getAsync('petGameJoin'+request.params.roomID).then(function(cache)
-	{
-		if(cache)
-		{
-			var petGame = JSON.parse(cache);
-			if(petGame.userID != request.params.userID)
-			{
-				req[key] = 0;
-				delete req[key];
-				return response.error('出错');
-			}
-			var query1 = new AV.Query('chatUsers');
-  			query1.equalTo('userID', petGame.userID);
-
-  			var query2 = new AV.Query('chatUsers');
-  			query2.equalTo('userID', reqData.ownerID);
-
-  			var goldNum = 0; var diamond = 0; var gambling = petGame.gambling;
-  			if(petGame.place < 5)
-  				goldNum = petGame.gambling;
-  			else
-  				diamond = petGame.gambling;
-
-  			redisClient.delAsync('petGameJoin'+ request.params.roomID).then(function(data)
-			{
-				AV.Query.or(query1, query2).find().then(function(results)
-			{
-				for (var i = results.length - 1; i >= 0; i--) {
-					var data = results[i];
-					if(data.get('userID') == request.params.winnerID)
-					{
-						data.increment('goldNum',goldNum);
-						data.increment('Diamond',diamond);
-					}
-					else
-					{
-						data.increment('goldNum', -1*goldNum);
-						data.increment('Diamond',-1*diamond);
-					}
-					//return data.save();
-				}
-				return AV.Object.SaveAll(results);
-			}).then(function(data){
-				
-				var log = new petGamblingLog();
-				log.set('gambling', gambling);
-				log.set('roomID', request.params.roomID);
-				log.set('winnerID', requst.params.winnerID);
-				log.set('loserID', requst.params.loserID);
-				log.set('startUserid',request.params.userID);
-				log.set('placeID', request.params.place);
-				log.save();
-				req[key] = 0;
-				delete req[key];
-				return response.success('成功!');
-			}).catch(function(error)
-			{
-				req[key]=0;
-				delete req[key];
-				//return response.error('出错!');
-			});
-			});
-		}
-		else
-		{
-			req[key] = 0;
-			delete req[key];
-			return response.error('出错!');
-		}
-	}).catch(response.error);
 });
 
 //拍卖上架
@@ -821,8 +752,28 @@ AV.Cloud.define('upItem', function(request, response)
 		return response.error('参数有误!');
 	}
 	var key = 'upItem:'+request.params.userID;
+	//并发控制
+	redisClient.incr(key,function( err, id ) 
+	{
+		redisClient.expire(key, 2);
+		if(err)
+		{
+			return response.error('上架失败!');
+		}
+		if(id > 1)
+		{
+			return response.error('上架失败!');
+		}
+
+	//全局变量
+	var newDay = false;
+	var upCache = {};
+	var fail = new failLog();
+	fail.set('IPAddress', request.meta.remoteAddress);
+	fail.set('action', '物品上架');
 	//检查是否已经被封禁
-	redisClient.getAsync('forbiddenUserID').then(function(cacheUser){
+	redisClient.getAsync('forbiddenUserID').then(function(cacheUser)
+	{
 		if(cacheUser)
 		{
 			var array = cacheUser.split(",");
@@ -833,20 +784,19 @@ AV.Cloud.define('upItem', function(request, response)
 				}
 			}
 		}
-
-	//并发控制
-	redisClient.incr(key,function( err, id ) 
-	{
-		redisClient.expire(key, 2);
-		if(id > 1)
+	return redisClient.getAsync('token:' + request.params.userID);
+	}).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
 		{
-			return response.error('上架失败!');
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
 		}
-
-	var newDay = false;
-    redisClient.getAsync('upItemLimit:'+request.params.userID).then(function(cache)
+		return redisClient.getAsync('upItemLimit:'+request.params.userID)
+	}).then(function(cache)
 	{
-		var upCache = {};
 		var now = new Date();
 		if(cache)
 		{
@@ -855,13 +805,13 @@ AV.Cloud.define('upItem', function(request, response)
 			if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
 			{
 				newDay = true;
-				upCache.count = 10;
+				upCache.count = 5;
 			}
 		}
 		else
 		{
 			newDay = true;
-			upCache.count = 10;
+			upCache.count = 5;
 		}
 		upCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
 		if(upCache.count <= 0 && request.params.userID != 6)
@@ -869,16 +819,13 @@ AV.Cloud.define('upItem', function(request, response)
 			return response.error("上架次数不足,活动期间每天限制为10次!");
 		}
 		upCache.count -= 1;
-		
 
-	var query = new AV.Query('package');
-	query.equalTo('userID', request.params.userID);
-	query.equalTo('itemID', request.params.itemID);
+		var query = new AV.Query('package');
+		query.equalTo('userID', request.params.userID);
+		query.equalTo('itemID', request.params.itemID);
+		return query.first();
 
-	var fail = new failLog();
-	fail.set('IPAddress', request.meta.remoteAddress);
-	fail.set('action', '物品上架');
-	query.first().then(function(data)
+	}).then(function(data)
 	{
 		fail.set('step', 1);
 		if(!data)
@@ -940,11 +887,9 @@ AV.Cloud.define('upItem', function(request, response)
 		fail.set('itemID', request.params.itemID);
 		fail.set('itemCount', request.params.itemCount);
 		fail.save();
-		//return response.error('上架失败!');
+		return response.error('上架失败!');
 	});
 });
-});
-}).catch(response.error);
 });
 
 //购买或下架
@@ -971,13 +916,25 @@ AV.Cloud.define('buyItem', function(request, response)
 		fail.set('auctionID', reqData.auctionID);
 		fail.set('userID', reqData.buyer);
 		fail.set('IPAddress', request.meta.remoteAddress);
-	log.set('des', "交易中心购买");
-	var query = new AV.Query('auctionItems');
-	query.equalTo('auctionID', reqData.auctionID);
-	var auctionItem;
-	var diamond = 0;
-	var buyer = 0;
-	return query.first().then(function(data)//查询数据
+		log.set('des', "交易中心购买");
+
+	return redisClient.getAsync('token:' + reqData.buyer).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		var query = new AV.Query('auctionItems');
+		query.equalTo('auctionID', reqData.auctionID);
+		var auctionItem;
+		var diamond = 0;
+		var buyer = 0;
+
+		return query.first();
+	}).then(function(data)//查询数据
 	{
 		fail.set('step', 1);
 		if (!data)
@@ -1006,7 +963,7 @@ AV.Cloud.define('buyItem', function(request, response)
 		if(reqData.owner == reqData.buyer)
 		{
 			console.log('物品下架!'+reqData.owner);
-			if(checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
+			if(common.checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
 			{
 				redisClient.getAsync('upItemLimit:' + reqData.owner).then(function(cache)
 				{
@@ -1048,7 +1005,7 @@ AV.Cloud.define('buyItem', function(request, response)
 
 				if(buyer > 0)
 				{
-					if( obj.get('freeAuctionAt') && checkDaySame(new Date(), obj.get('freeAuctionAt')))
+					if( obj.get('freeAuctionAt') && common.checkDaySame(new Date(), obj.get('freeAuctionAt')))
 					{
 						if(diamond >= 5 && diamond < 10)
 						{
@@ -1267,7 +1224,9 @@ AV.Cloud.define('checkAccount', function(request, response)
 		return response.success('');
 	}
 	else
+	{
 		return response.error('暂未开放!');
+	}
 	
 	var openid = request.params.openid||'1234567';
 	var phone = request.params.phone||'1234567';
@@ -1406,7 +1365,7 @@ AV.Cloud.define('harvestPlant',function(request, response)
 			data.increment('Diamond', diamond);
 		}
 		//日魅力增加
-		if(data.get('dailylikeAt') && checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
+		if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
 		{
 			data.increment('dailylike', charmCount);
 		}
@@ -1429,10 +1388,6 @@ AV.Cloud.define('harvestPlant',function(request, response)
 	});
 	});
 });
-function checkDaySame(date, now)
-{
-	return date.getFullYear() == now.getFullYear() && date.getMonth() == now.getMonth() && date.getDate() == now.getDate();
-}
 
 AV.Cloud.define('recoveryBuilding',function(request, response)
 {
@@ -1449,6 +1404,8 @@ AV.Cloud.define('recoveryBuilding',function(request, response)
 	var diamond =0;
 	var gold =0;
 	var userID = 0;
+
+
 	new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first().then(function(data)
 	{
 		if(!data)
@@ -1573,7 +1530,17 @@ AV.Cloud.define('stealPlant',function(request, response)
 AV.Cloud.define('renewDecoration', function(request, response)
 {
 	var weddingType = 0;
-	return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first()
+	}).then(function(data)
 	{
 		if(!data)
 		{
@@ -1636,11 +1603,10 @@ Date.prototype.Format = function (fmt) {
  }
 
 AV.Cloud.define('sendGift', function(request, response)
-{	
-	//return response.error('error');
+{
 	if(request.params.remoteAddress == '114.254.97.89')
 	{
-		return response.error('查询失败！');
+		return response.error('查询失败!');
 	}
 	var userID = request.params.userID;
 	var giftID = request.params.giftID;
@@ -1655,6 +1621,7 @@ AV.Cloud.define('sendGift', function(request, response)
 	var loverIncrease = 1.0;
 	var key = "sendGift:"+userID;
 	//并发控制
+	
 	redisClient.incr(key,function( err, id ) 
 	{
 		redisClient.expire(key, 2);
@@ -1662,9 +1629,20 @@ AV.Cloud.define('sendGift', function(request, response)
 		{
 			return response.error('送礼失败!');
 		}
-		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		return redisClient.getAsync('token:'+userID).then(function(cache)
+		{	
+			console.log(cache+","+request.params.token);
+			if(!cache || cache != request.params.token)
+			{
+				if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
 		{
-			if(!data)
+		if(!data)
 		{
 			return AV.Promise.error('错误!');
 		}	
@@ -1697,7 +1675,7 @@ AV.Cloud.define('sendGift', function(request, response)
 		{
 			data.increment('goldNum', -1* needGold );
 			data.increment('Diamond', -1* needDiamond);
-			if(data.get('dailyUseGoldAt') && checkDaySame(data.get('dailyUseGoldAt'), new Date()))
+			if(data.get('dailyUseGoldAt') && common.checkDaySame(data.get('dailyUseGoldAt'), new Date()))
 			{
 				data.increment('dailyUseGold', needGold + needDiamond * 10);
 			}
@@ -1731,7 +1709,7 @@ AV.Cloud.define('sendGift', function(request, response)
 			//日魅力增加
 			if(gift.get('Charm') > 0)
 			{
-				if(data.get('dailylikeAt') && checkDaySame(data.get('dailylikeAt'), new Date()))
+				if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))
 				{
 					data.increment('dailylike', parseInt(loverIncrease * gift.get('Charm')));
 				}
@@ -1824,29 +1802,29 @@ AV.Cloud.define('sendGift', function(request, response)
 		});
 	});
 });
-function initGiftInfo()
-{
-	new AV.Query('GiftInfo').find().then(function(results)
-	{
-		for (var i = results.length - 1; i >= 0; i--) {
-			var data = results[i];
-			giftInfo[data.get('GiftID')] = JSON.stringify(data);
-		}
-	});
-};
+
 
 AV.Cloud.define('endMarriage', function(request, response)
 {
 	var userID = request.params.userID;
 	var other = 0;
 
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		var query1 = new AV.Query('chatUsers');
+  		query1.equalTo('userID', userID);
 
-	var query1 = new AV.Query('chatUsers');
-  	query1.equalTo('userID', userID);
-
-  	var query2 = new AV.Query('chatUsers');
-  	query2.equalTo('lover', userID);
-  	return AV.Query.or(query1, query2).find().then(function(results)
+  		var query2 = new AV.Query('chatUsers');
+  		query2.equalTo('lover', userID);
+  		return AV.Query.or(query1, query2).find()
+  	}).then(function(results)
 	{
 		for (var i = results.length - 1; i >= 0; i--)
 		 {
@@ -1957,7 +1935,17 @@ AV.Cloud.define('useChestBatch', function(request, response)
 
 	var itemID = request.params.itemID;
 	var saveDatas = {};
-	return new AV.Query('package').equalTo('userID', request.params.userID).find().then(function(results)
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('package').equalTo('userID', request.params.userID).find();
+	}).then(function(results)
 	{
 		var data = null;
 		for (var i = results.length - 1; i >= 0; i--) {
@@ -2062,9 +2050,19 @@ AV.Cloud.define('ComposeItem', function(request, response){
 		{
 			return response.error('无法合成!');
 		}
-		var query = new AV.Query('package');
-		query.equalTo('userID', request.params.userID);
-		query.containedIn('itemID', [item, item+1]).find().then(function(results)
+		return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				if(global.isReview == 0)
+				{	
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			var query = new AV.Query('package');
+			query.equalTo('userID', request.params.userID);
+			return query.containedIn('itemID', [item, item+1]).find()
+		}).then(function(results)
 		{
 			var count = 0;
 			for (var i = results.length - 1; i >= 0; i--) {
@@ -2136,12 +2134,22 @@ AV.Cloud.define('UseItem', function(req, res)
 		redisClient.expire(key, 2);
 		if(id > 1)
 		{
-			return response.error('访问太过频繁!');
+			return res.error('访问太过频繁!');
 		}
 	var item = req.params.itemID;
 	var newItem = -1;
 	var saveObj = new Array();
-	return new AV.Query('package').equalTo('itemID', item).equalTo('userID', req.params.userID).first().then(function(data)
+	return redisClient.getAsync('token:' + req.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != req.params.token)
+		{
+			if(global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('package').equalTo('itemID', item).equalTo('userID', req.params.userID).first();
+	}).then(function(data)
 	{
 		if(!data || data.get('itemCount') <= 0)
 		{
@@ -2330,6 +2338,9 @@ AV.Cloud.define('clientHeart', function(req, response)
 					return response.success('appstore');
 				}
 			}
+			else{
+				return response.error('成功!');
+			}
 		}
 		else
 		{	
@@ -2353,29 +2364,32 @@ AV.Cloud.define('userEvaluate', function(request, response)
 	var version = request.params.version;
 	var evaluate = request.params.evaluate;
 	redisClient.getAsync(clientKey(userID)).then(function(cacheUser)
+	{
+		if(cacheUser)
 		{
-			if(cacheUser)
-			{
-				var data = JSON.parse(cacheUser);
-				data['evaluate'] = evaluate;
-				var date = new Date();
-				data['date'] = date.getFullYear() + "-" + (date.getMonth()+1) + "-" +date.getDate();
-				data['version'] = version;
-				redisClient.setAsync(clientKey(userID), JSON.stringify(data));
-				return response.success('成功!');
-			}
-			else
-			{
-				return response.error('未查询到数据!');
-			}
-		}).catch(response.error);
+			var data = JSON.parse(cacheUser);
+			data['evaluate'] = evaluate;
+			var date = new Date();
+			data['date'] = date.getFullYear() + "-" + (date.getMonth()+1) + "-" +date.getDate();
+			data['version'] = version;
+			redisClient.setAsync(clientKey(userID), JSON.stringify(data));
+			return response.success('成功!');
+		}
+		else
+		{
+			return response.error('未查询到数据!');
+		}
+	}).catch(response.error);
 });
 
 AV.Cloud.define('saveUUID', function(request, response)
 {
 	var userID = request.params.userID;
 	var uuid = request.params.uuid;
-	redisClient.setAsync("UUID:"+userID, uuid);
+	redisClient.setAsync("UUID:"+userID, uuid).catch(function(error)
+	{
+		console.log('保存UUID失败!');
+	});
 	response.success('');
 });
 
@@ -2504,34 +2518,11 @@ AV.Cloud.define('delGroupActive', function(request, response)
 
 AV.Cloud.define('dealSomething', function(request, response)
 {
-	var query = new AV.Query('GiftRecv');
-	var date = new Date();
-	date.setDate(11);
-	query.descending('userid');
-	query.descending('createdAt');
-	query.limit(1000);
-	var giftrec = new Array();
-	query.find().then(function(results)
+	return new AV.Query('aclTest').find().then(function(results)
 	{
-		console.log(results.length);
-		for (var i = results.length - 1; i >= 0; i--) 
-		{
-			var data = results[i];
-			var has = false;
-			for (var j = giftrec.length - 1; j >= 0; j--) {
-				if(data.get('giftid') == giftrec[j].giftid && data.get('userid') == giftrec[j].userid)
-				{
-					has = true;
-					giftrec[j].count += data.get('count');
-				}
-			}
-			if(has == false)
-			{
-				giftrec.push({giftid:data.get('giftid'),userid:data.get('userid'),count:data.get('count')});
-			}
+		for (var i = results.length - 1; i >= 0; i--) {
+			console.log(results[i].get('MobilePhone'));
 		}
-		//console.log(giftrec.length);
-		console.log(giftrec);
 	});
 });
 
@@ -2587,6 +2578,25 @@ AV.Cloud.define('endMarriageNoGold', function(request, response)
 	}).catch(function(error)
 	{
 		return response.error('离婚失败!');
+	});
+});
+
+AV.Cloud.define('checkUserUUID', function(request, response)
+{
+	var uuid = request.params.uuid;
+	var userID = request.params.userID;
+	redisClient.getAsync("UUID:"+userID).then(function(cache){
+		if(uuid == cache)
+		{
+			response.success('success');
+		}
+		else
+		{
+			response.error('error');
+		}
+	}).catch(function(error)
+	{
+		response.error('error');
 	});
 });
 
