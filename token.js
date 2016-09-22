@@ -484,6 +484,10 @@ AV.Cloud.define('startChat', function(request, response)
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	var needGold = 0;
+	if(userID == otherID)
+	{
+		return response.error('无法向自己发起对话!');
+	}
 	return redisClient.getAsync('token:' + userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -524,7 +528,7 @@ AV.Cloud.define('startChat', function(request, response)
 			}
 			else if(data.get('userID') == otherID)
 			{
-				data.increment('goldNum', -1 * needGold);
+				data.increment('goldNum', needGold);
 			}
 		}
 		return AV.Object.saveAll(results);
