@@ -66,93 +66,93 @@ exports.createToken = function createToken()
 	token = token.split('-').join('');
 	return token;
 }
-exports.getGoodReview = function(var)
+exports.getGoodReview = function(value)
 {
-    if(var == 0)
+    if(value == 0)
     {
         return {goldNum:80};
     }
-    else if(var == 10)
+    else if(value == 10)
     {
         return {goldNum:130};
     }
-    else if(var == 30)
+    else if(value == 30)
     {
         return {goldNum:230};
     }
-    else if(var == 50)
+    else if(value == 50)
     {
         return {goldNum:330};
     }
-    else if(var < 100)
+    else if(value < 100)
     {
         return {goldNum:30};
     }
-    else if(var == 100)
+    else if(value == 100)
     {
         return {goldNum:530};
     }
-    else if(var < 300)
+    else if(value < 300)
     {
         return {goldNum:50};
     }
-    else if(var < 500)
+    else if(value < 500)
     {
         return {goldNum:100};
     }
-    else if(var < 1000)
+    else if(value < 1000)
     {
         return {goldNum:150, goldMax:50};
     }
-    else if(var < 2000)
+    else if(value < 2000)
     {
         return {goldNum:200, goldMax:100};
     }
-    else if(var < 5000)
+    else if(value < 5000)
     {
         return {goldNum:400, goldMax:200};
     }
-    else if(var < 10000)
+    else if(value < 10000)
     {
         return {goldNum:500, goldMax:500};
     }
-    else if(var < 20000)
+    else if(value < 20000)
     {
         return {goldNum:700, goldMax:700};
     }
-    else if(var < 50000)
+    else if(value < 50000)
     {
         return {goldNum:1000, goldMax:1000};
     }
 };
 
-exports.getBadReview = function(var)
+exports.getBadReview = function(value)
 {
-    if(var < 10)
+    if(value < 10)
     {
         return {goldNum:-50};
     }
-    else if(var < 50)
+    else if(value < 50)
     {
         return {goldNum:-100};
     }
-    else if(var < 100)
+    else if(value < 100)
     {
         return {goldNum:-200};
     }
-    else if(var < 200)
+    else if(value < 200)
     {
         return {goldNum:-400};
     }
-    else if(var < 500)
+    else if(value < 500)
     {
         return {goldNum:-500}
     }
-    else if(var < 1000)
+    else if(value < 1000)
     {
         return {goldNum:-1000};
     }
-    else if(var < 10000)
+    else if(value < 10000)
     {
         return {goldNum:-2000};
     }
