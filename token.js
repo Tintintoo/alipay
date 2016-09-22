@@ -276,7 +276,7 @@ AV.Cloud.define('updateUserInfo', function(request, response)
 				var point = JSON.parse(values[i]);
 				if(point.lat == 0 && point.long == 0)
 				{
-					data.set('location', null);
+					data.set('location', new AV.GeoPoint(null));
 				}
 				else
 				{
