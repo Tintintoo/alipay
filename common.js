@@ -161,3 +161,31 @@ exports.getBadReview = function(value)
         return {goldNum: -5000};
     }
 }
+exports.getMapSilver = function(mapID)
+{
+    if(mapID <= 0)
+    {
+        return 0;
+    }
+    if(mapID <= 30)
+    {
+        return mapID*50;
+    }
+    else if(mapID < 40)
+    {
+        return mapID*50 + (mapID-30) * 25;
+    }
+    else if(mapID > 1000 && mapID <1009)
+    {
+        return (mapID-1000)*1000;
+    }
+    else
+    {
+        return 0;
+    }
+}
+exports.FormatDate = function(date)
+{
+    return date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate() + ' ' + date.getHours()+':'+
+    date.getMinutes()+':'+date.getSeconds();
+}

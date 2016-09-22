@@ -545,10 +545,92 @@ AV.Cloud.define('startChat', function(request, response)
 	});
 });
 
+AV.Cloud.define('shareLike', function(request, response)
+{
+	var userID = request.params.userID;
+	var shareID = request.params.shareID;
+	var goldMax = 0;
+	var goldEach = 0;
+
+	return redisClient.incr('shareLike:'+shareID,function(err, id) 
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		redisClient.expire(key, 1);
+		
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('shareInfoTable').equalTo('shareID', shareID).first();
+		}).then(function(data)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('查询失败!');
+			}
+			data.increment('beLikedCount', 1);
+			goldMax = data.get('goldSendRest');
+			goldEach = data.get('goldGetEach');
+			if(goldEach > 100)
+			{
+				goldEach = 100;
+			}
+			if(goldMax < goldEach)
+			{
+				return AV.Promise.error('已经领完了!');
+			}
+			data.increment('goldSendRest', -1 * goldEach);
+			return data.save();
+		}).then(function(success)
+		{
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			data.increment('goldNum', goldEach);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({'gold':goldEach});
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+})
+
 AV.Cloud.define('increaseGold', function(request, response)
 {
 	var userID = request.params.userID;
 	var tag = request.params.tag;
+	var value = request.params.value;
+	var gold = 0;
+	var goldMax = 0;
+	var vip =[15, 30, 60, 80, 100, 120, 140, 160, 180, 200, 220, 240, 260, 280, 300];
+	var key = 'increaseType'+tag+":" +userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('失败!');
+		}
+		if(tag == 10)
+		{
+			redisClient.expire(key, 50);
+		}
+		else
+		{
+			redisClient.expire(key, 1);
+		}
+
 	return redisClient.getAsync('token:' + userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -559,10 +641,194 @@ AV.Cloud.define('increaseGold', function(request, response)
 				return AV.Promise.error('访问失败!');
 			}
 		}
+		if(tag == 1)
+		{
+			return new AV.Query('shareInfoTable').equalTo('shareID', value).first();
+		}
+		else
+		{
+			return AV.Promise.as('success');
+		}
+
+	}).then(function(data)
+	{
+		if(tag == 1)
+		{
+			gold = -1 * data.get('goldSendRest');
+		}
+		else if(tag == 2)
+		{
+			gold = -100;
+		}
+		else if(tag == 3)
+		{
+			gold = -1000;
+		}
+		else if(tag == 4)
+		{
+			gold = -100;
+		}
+		else if(tag == 5)
+		{
+			gold = 100;
+		}
+		else if(tag == 6)
+		{
+			gold = 100;
+			goldMax = 100;
+		}
+		else if(tag == 7)
+		{
+			gold = -10;
+		}
+		else if(tag == 8)
+		{
+			gold = -20;
+		}
+		else if(tag == 9)
+		{
+			gold = -2000;
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data)
+	{
+		if(tag == 2 && data.get('sex') == 2)
+		{
+			gold = -50;
+		}
+		if(tag == 10)
+		{
+			gold = vip[common.getVipType(data.get('BonusPoint'))];
+		}
+		data.increment('goldNum', gold);
+		if(goldMax > 0)
+		{
+			data.increment('goldMax', goldMax);
+		}
+		return data.save();
+	}).then(function(success)
+	{
+		response.success({'gold':gold});
+	}).catch(function(error)
+	{
+		response.error(error);
+	});
+
+	});
+	
+});
+
+AV.Cloud.define('IncreaseSilver', function(request, response)
+{
+	var silver = request.params.silver || 0;
+	var mapID = request.params.mapID || 0;
+	var userID = request.params.userID;
+	if(silver > -1000 && silver != 0)
+	{
+		return response.error('参数错误!');
+	}
+	if(silver == 0)
+	{
+		silver = common.getMapSilver(mapID);
+	}
+	if(silver == 0)
+	{
+		return response.error('参数错误!');
+	}
+	var key = 'silver:'+userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('失败!');
+		}
+		redisClient.expire(key, 1);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			data.increment('silverCoin', silver);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success('');
+		}).catch(function(error)
+		{
+			response.error('获取银币失败!');
+		});
 	});
 });
 
-AV.Cloud.define('decreaseGold', function(request, response)
+AV.Cloud.define('harvestPetGold', function(request, response)
+{
+	var userID = request.params.userID;
+	var petID = request.params.petID;
+	var key = "harvest:"+userID;
+	var silver = 0;
+	var date = new Date();
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			response.error('访问频繁!');
+		}
+		redisClient.expire(key, 2);
+		return new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
+		{
+			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
+			if(userID == data.get(userID))//自己收获
+			{
+				if(harvTime > new Date())
+				{
+					return AV.Promise.error('还未到收获时间');
+				}
+				data.set('goldHarvestAt', common.FormatDate(date));
+				silver = data.get('gold');
+			}
+			else
+			{
+				var gold = data.get('gold');
+				var goldMax = data.get('goldMax');
+				var silver = parseInt(goldMax * 0.1);
+				if(gold < goldMax * 0.4)
+				{
+					return AV.Promise.error('银币不足,无法偷取!');
+				}
+				else if(gold - silver < goldMax *0.4)
+				{
+					silver = parseInt(gold - goldMax*0.4);
+				}
+			}
+			data.increment('gold', -1 * silver);
+			return data.save();
+		}).then(function(success)
+		{
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			data.increment('silverCoin', silver);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({'siver':silver});
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
+	});
+
+});
+
+AV.Cloud.define('sendNotice', function(request, response)
 {
 	var userID = request.params.userID;
 	return redisClient.getAsync('token:' + userID).then(function(cache)
