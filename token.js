@@ -555,7 +555,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 				return AV.Promise.error('访问失败!');
 			}
 		}
-	}
+	});
 });
 
 AV.Cloud.define('decreaseGold', function(request, response)
