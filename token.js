@@ -271,7 +271,22 @@ AV.Cloud.define('updateUserInfo', function(request, response)
 	{
 		for (var i = fields.length - 1; i >= 0; i--) 
 		{
-			data.set(fields[i], values[i]);
+			if(fields[i] == 'location')
+			{
+				var point = JSON.parse(values[i]);
+				if(point.lat == 0 && point.long == 0)
+				{
+					data.set('location', null);
+				}
+				else
+				{
+					data.set('location', new AV.GeoPoint(point));
+				}
+			}
+			else
+			{	
+				data.set(fields[i], values[i]);
+			}
 		}
 		return data.save();
 	}).then(function(success)
@@ -843,6 +858,137 @@ AV.Cloud.define('sendNotice', function(request, response)
 		}
 	});
 });
+
+AV.Cloud.define('IncreaseField', function(request, response)
+{
+	var userID = request.params.userID;
+	var field = request.params.field;
+	var dailyField = request.params.dailyField;
+	var dateField = request.params.dateField;
+	var otherID= request.params.otherID;
+	var key = 'IncreaseField:'+userID;
+	var type = request.params.type;
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			response.error('访问频繁!');
+		}
+		redisClient.expire(key, 1);
+		return new AV.Query('chatUsers').equalTo('userID', otherID).first().then(function(data)
+		{
+			if(type && type < 0)
+			{
+				data.increment(field, -1);
+			}
+			else
+			{
+				data.increment(field, 1);
+			}
+			if(field == 'sexyNum' || field == 'adNum')
+			{
+				if(data.get('bProtect') > 0)
+				{
+					return AV.Promise.error('保护用户,无法举报!');
+				}
+			}
+			if(dailyField)
+			{
+				var sameDay = false;
+				var time = data.get(dateField);
+				if(typeof(time) == "string")
+				{	
+					sameDay = common.checkDaySame(new Date(), new Date(time.replace(/-/g,"/")));
+				}
+				else if(time)
+				{
+					sameDay = common.checkDaySame(new Date(), time);
+				}
+				if(sameDay)
+				{
+					data.increment(dailyField, 1);
+				}
+				else
+				{
+					data.set(dailyField, 1);
+				}
+				data.set(dateField, common.FormatDate(new Date()));
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			response.success('success');
+		}).catch(function(error)
+		{
+			response.error('失败!');
+		});
+	});
+});
+
+AV.Cloud.define('startBottleChat', function(request, response)
+{
+	var userID = request.params.userID;
+	var cost = 0;
+	return redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		{
+			var time = data.get('lastReceivetime');	
+			var sameDay = false;
+			if(data.get('receiveCount') < 0 )
+			{
+				return AV.Promise.error('参数错误!');
+			}
+			if(data.get('receiveCount') < 5)
+			{
+				cost = -20;
+			}
+			else if(data.get('receiveCount') < 10)
+			{
+				cost = -40;
+			}
+			else
+			{
+				cost = -20 * parseInt(data.get('receiveCount') / 10);
+			}
+			if(time)
+			{	
+				sameDay = common.checkDaySame(new Date(), new Date(time.replace(/-/g,"/")));
+			}
+			if(sameDay)
+			{
+				data.increment('receiveCount', 1);
+			}
+			else
+			{
+				data.set('receiveCount', 1);
+				cost = -20;
+			}
+			if(data.get('goldNum') < -1*cost)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			data.set('lastReceivetime', common.FormatDate(new Date()));
+			data.increment('goldNum', cost);
+			data.fetchWhenSave(true);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({goldNum:data.get('goldNum'), goldMax:data.get('goldMax')});
+		}).catch(function(error)
+		{
+			response.error(error);
+		})
+	});
+})
 
 
 module.exports = AV.Cloud;

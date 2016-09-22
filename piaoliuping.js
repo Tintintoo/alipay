@@ -2139,6 +2139,7 @@ AV.Cloud.define('UseItem', function(req, res)
 	var item = req.params.itemID;
 	var newItem = -1;
 	var saveObj = new Array();
+	var meili = 0;
 	return redisClient.getAsync('token:' + req.params.userID).then(function(cache)
 	{	
 		if(!cache || cache != req.params.token)
@@ -2176,6 +2177,24 @@ AV.Cloud.define('UseItem', function(req, res)
 			}
 			return new AV.Query('package').equalTo('userID', req.params.userID).equalTo('itemID',newItem).first();
 		}
+		else if(item == 25 || item == 28)
+		{
+			if(data.get('itemCount') <= 0)
+			{
+				data.destroy();
+				return AV.Promise.error('道具不足,无法使用!');
+			}
+			else if(data.get('itemCount') == 1)
+			{
+				data.destroy();
+			}
+			else 
+			{
+				saveObj.push(data);
+				data.increment('itemCount', -1);
+			}
+			return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
+		}
 		else
 		{
 			//data.increment('itemCount', -1);
@@ -2206,6 +2225,17 @@ AV.Cloud.define('UseItem', function(req, res)
 			return new AV.Query('package').equalTo('userID', req.params.userID).containedIn('itemID', 
 				[item+1, petGift[item.toString()]['item']]).find();
 		}
+		else if(item == 25 || item == 28)
+		{
+			meili = Math.random() * 1000;
+			if(item == 28)
+			{
+				meili *= 10;
+			}
+			data.increment('beLikedNum', meili);
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}
 		else
 		{
 			if(data)
@@ -2227,7 +2257,7 @@ AV.Cloud.define('UseItem', function(req, res)
 	{
 		if(newItem > 0)
 		{
-			res.success({'itemID':newItem});
+			res.success({'itemID':newItem,'charm':meili});
 			return AV.Promise.error('success');
 		}
 		else
