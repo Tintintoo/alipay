@@ -347,6 +347,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 	}
 	var date = new Date();
 	var resData ={};
+	var userRate = {};
 	redisClient.incr("Praise:"+fromID, function(err, id)
 	{
 		if(id > 1)
@@ -376,12 +377,14 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 				{
 					rate.count = 10;
 					rate.date = new Date();
+					rate.user = [];
 				}
 			}
 			else
 			{
 				rate.count = 10;
 				rate.date = new Date();
+				rate.user = [];
 			}
 			if(rate.count <= 0)
 			{
@@ -389,6 +392,32 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			}
 			rate.count -= 1;
 			redisClient.setAsync('Rated:'+ fromID, JSON.stringify(rate));
+			return redisClient.getAsync('Rated'+ userID);
+		}).then(function(cache)
+		{
+			if(cache)
+			{
+				userRate = JSON.parse(cache);
+				if(!common.checkDaySame(date, userRate.date))
+				{
+					userRate.count = 10;
+					userRate.date = new Date();
+					userRate.user = [];
+				}
+			}
+			else
+			{
+				userRate.count = 10;
+				userRate.date = new Date();
+				userRate.user = [];
+			}
+			for (var i = userRate.user.length - 1; i >= 0; i--) {
+				if(userRate.user[i] == fromID)
+				{
+					return AV.Promise.error('你今天已经评价过他(她)了!');
+				}
+			}
+			userRate.user.push(fromID);
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
@@ -434,6 +463,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
+			redisClient.setAsync('Rated:'+userID, JSON.stringify(userRate));
 			response.success(resData);
 		}).catch(function(error)
 		{
@@ -527,7 +557,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 		}
 	}
 });
-	
+
 AV.Cloud.define('decreaseGold', function(request, response)
 {
 	var userID = request.params.userID;
