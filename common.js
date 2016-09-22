@@ -186,6 +186,8 @@ exports.getMapSilver = function(mapID)
 }
 exports.FormatDate = function(date)
 {
-    return date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate() + ' ' + date.getHours()+':'+
+    var ret = date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate() + ' ' + date.getHours()+':'+
     date.getMinutes()+':'+date.getSeconds();
+    console.log(ret);
+    return ret;
 }
