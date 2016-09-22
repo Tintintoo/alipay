@@ -992,7 +992,7 @@ AV.Cloud.define('startBottleChat', function(request, response)
 
 AV.Cloud.define('setLottery', function(request, response){
 	var userID = request.params.userID;
-	return AV.Query('chatUsers').equalTo('userID', userID).then(function(data)
+	return new AV.Query('chatUsers').equalTo('userID', userID).then(function(data)
 	{
 		data.set('lotteryDate', common.FormatDate(new Date()));
 		data.save();
