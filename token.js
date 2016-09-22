@@ -571,7 +571,7 @@ AV.Cloud.define('decreaseGold', function(request, response)
 				return AV.Promise.error('访问失败!');
 			}
 		}
-	}
+	});
 });
 
 
