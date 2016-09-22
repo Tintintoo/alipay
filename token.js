@@ -988,6 +988,15 @@ AV.Cloud.define('startBottleChat', function(request, response)
 			response.error(error);
 		})
 	});
+});
+
+AV.Cloud.define('setLottery', function(request, response){
+	var userID = request.params.userID;
+	return AV.Query('chatUsers').equalTo('userID', userID).then(function(data)
+	{
+		data.set('lotteryDate', common.FormatDate(new Date()));
+		data.save();
+	});
 })
 
 
