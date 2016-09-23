@@ -787,7 +787,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 {
 	var userID = request.params.userID;
 	var petID = request.params.petID;
-	var key = "harvest:"+userID;
+	var key = "harvest:" + userID;
 	var silver = 0;
 	var date = new Date();
 	redisClient.incr(key, function(err, id)
@@ -800,7 +800,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 		return new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
 			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
-			if(userID == data.get(userID))//自己收获
+			if(userID == data.get('userID'))//自己收获
 			{
 				if(harvTime > new Date())
 				{
@@ -834,7 +834,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
-			response.success({'siver':silver});
+			response.success({'silver':silver});
 		}).catch(function(error)
 		{
 			return response.error(error);
@@ -996,8 +996,52 @@ AV.Cloud.define('setLottery', function(request, response){
 	{
 		data.set('lotteryDate', common.FormatDate(new Date()));
 		data.save();
+		response.success('');
+	}).catch(function(error)
+	{
+		response.error('error');
 	});
-})
+});
+
+AV.Cloud.define('resetUserInfo', function(request, response)
+{
+	var userID = request.params.userID;
+	var cost = 0;
+	return redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data)
+	{
+		data.set('goldNum', 0);
+		data.set('goldMax', 100);
+		data.set('nickName', '');
+		data.set('dailylike', 0);
+		data.set('dailyUseGold', 0);
+		data.set('dailygood', 0);
+		data.set('Diamond', 0);
+		data.set('beLikedNum', 0);
+		data.set('greatNum', 0);
+		data.set('badNum', 0);
+		data.set('fensCount', 0);
+		data.set('bSexSetable', 1);
+		data.set('useGold', 0);
+		return data.save();
+	}).then(function(success)
+	{
+		response.success(success);
+	}).catch(function(error)
+	{
+		response.error(error);
+	});
+});
 
 
 module.exports = AV.Cloud;
