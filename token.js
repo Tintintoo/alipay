@@ -1326,6 +1326,7 @@ AV.Cloud.define('sendNotice', function(request, response)
 			if(type == 1 && data.get('BonusPoint') > 0)//飞屏喇叭判断是否有免费次数
 			{
 				var vip = common.getVipType(data.get('BonusPoint'));
+				console.log(freeHorn);
 				if(freeHorn.date && common.checkDaySame(now, freeHorn.date))
 				{
 					if(freeHorn.count >= 0)
