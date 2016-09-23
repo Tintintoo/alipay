@@ -1512,7 +1512,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				}
 				saveObj.push(data);
 			}
-			return AV.Query('chatUsers').equalTo('userID', userID).first();
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
 			if(goldNum < 0 && data.get('goldNum') < -1*goldNum)
