@@ -1406,5 +1406,141 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 	});
 });
 
+AV.Cloud.define('cultureBuilding', function(request, response)
+{
+	var userID = request.params.userID;
+	var saveObj = [];
+	var goldNum = 0;
+	var diamond = 0;
+	var up = 0;
+	var needTime = 0;
+	var exp = 0;
+	redisClient.incr("cultureBuilding:"+userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('cultureBuilding:'+userID, 1);
+
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('building').equalTo('buildingNo', request.params.buildNo).first();
+		}).then(function(data)
+		{
+			if(data.get('userID') != userID)
+			{
+				return AV.Promise.error('数据异常!');
+			}
+			var now = parseInt(new Date().getTime() / 1000) + 3600 * 8;
+
+			if(request.params.gold == 1)//金币培养
+			{
+				exp = 10;
+				var culture = new Date(data.get('lastGoldAt').replace(/-/g,"/"));
+				if(now - data.get('lastCultureAt') > 3600 * 4)//超过4小时 免费一次
+				{
+					data.set('lastCultureAt', now);
+				}
+				else 
+				{
+					needTime = 3600 * 4 - (now - data.get('lastCultureAt'));
+					if(common.checkDaySame(new Date(), culture))
+					{
+						if(data.get('goldCount') <= 0)
+						{
+							return AV.Promise.error('可培养次数不足!');
+						}
+						goldNum = -1000 + (data.get('goldCount') - 10) * 200;
+						data.increment('goldCount', -1);
+					}
+					else
+					{
+						data.set('lastGoldAt', common.FormatDate(new Date()));
+						goldNum = -1000;
+						data.set('goldCount', 9);
+					}
+				}
+				data.increment('exp', 10);
+				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')+1))
+				{
+					up = 1;
+					data.increment('buildingLevel', 1);
+				}
+				saveObj.push(data);
+			}
+			else
+			{
+				var culture = new Date(data.get('lastDiamondAt').replace(/-/g,"/"));
+				exp = 40;
+				if(common.checkDaySame(new Date(), culture))
+				{
+					if(data.get('DiamondCount') <= 0)
+					{
+						return AV.Promise.error('可培养次数不足!');
+					}
+					if(data.get('DiamondCount') == 2)
+					{
+						exp += 20;
+					}
+					else if(data.get('DiamondCount') == 1)
+					{
+						exp += 60;
+					}
+					diamond = -50 + (data.get('DiamondCount') - 3) * 10;
+					data.increment('DiamondCount', -1);
+				}
+				else
+				{
+					data.set('lastDiamondAt', common.FormatDate(new Date()));
+					diamond = -50;
+					data.set('goldCount', 2);
+				}
+				data.increment('exp', exp);
+				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')+1))
+				{
+					up = 1;
+					data.increment('buildingLevel', 1);
+				}
+				saveObj.push(data);
+			}
+			return AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(goldNum < 0 && data.get('goldNum') < -1*goldNum)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			if(diamond < 0 && data.get('Diamond') < -1*diamond)
+			{
+				return AV.Promise.error('钻石不足!');
+			}
+			if(goldNum == 0 && diamond == 0)
+			{
+				return AV.Object.saveAll(saveObj);
+			}
+			data.increment('goldNum', goldNum);
+			data.increment('Diamond', diamond);
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}).then(function(success)
+		{
+			response.success({'goldNum':goldNum,'diamond':diamond,'upgrade',up,'exp',exp});
+		}).catch(function(error)
+		{
+			response.error({'error':error, 'time':needTime});
+		});
+	});
+
+});
+
 
 module.exports = AV.Cloud;

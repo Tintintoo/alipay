@@ -235,3 +235,66 @@ exports.getBuildingItemPrice = function(itemID, itemType)
     }
     return {};
 }
+exports.getBuildingExp = function(nLevel)
+{
+    if (nLevel <= 0)
+    {
+        return 0;
+    }
+    if (nLevel == 1)
+    {
+        return 60;
+    }
+    if (nLevel == 2)
+    {
+        return 200;
+    }
+    if (nLevel == 3)
+    {
+        return 500;
+    }
+    if (nLevel == 4)
+    {
+        return 1000;
+    }
+    if (nLevel == 5)
+    {
+        return 2000;
+    }
+    if (nLevel == 6)
+    {
+        return 5000;
+    }
+    if (nLevel == 7)
+    {
+        return 10000;
+    }
+    if (nLevel == 8)
+    {
+        return 20000;
+    }
+    if (nLevel == 9)
+    {
+        return 40000;
+    }
+    if(nLevel ==10)
+    {
+        return 100000;
+    }
+    if(nLevel == 11)
+    {
+        return 200000;
+    }
+    if(nLevel == 12)
+    {
+        return 300000;
+    }
+    if(nLevel == 13)
+    {
+        return 500000;
+    }
+    if(nLevel == 14)
+    {
+        return 1000000;
+    }
+}
