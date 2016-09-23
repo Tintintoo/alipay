@@ -31,7 +31,7 @@ realtime.createIMClient('-1').then(function(tom)
   	});
 });
 
-AV.Cloud.define('sendNotice', function(request, response)
+AV.Cloud.define('sendSysNotice', function(request, response)
 {
 	realtime.createIMClient('-1').then(function(tom)
 	{

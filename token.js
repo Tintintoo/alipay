@@ -1225,5 +1225,82 @@ AV.Cloud.define('DaySign', function(request, response)
 	})
 });
 
+AV.Cloud.define('sendNotice', function(request, response)
+{
+	var userID = request.params.userID;
+	var type = request.params.type;
+	var actid = request.params.actid;
+	var goldNum = 0;
+	var diamond = 0;
+	if(type == 7 || type == 8 || type == 9 || type == 2 || type == 3)
+	{
+		return response.success('success');
+	}
+	if(type == 5)//普通广播
+	{
+		goldNum = -200;
+	}
+	else if(type == 6)
+	{
+		diamond = -5;
+	}
+	else if(type == 1)
+	{
+		goldNum -= 500;
+	}
+	if(actid == 1)
+	{
+		diamond -= 1;
+	}
+	else if(actid == 2 || actid == 5 || actid == 6)
+	{
+		diamond -= 3;
+	}
+	else if(actid == 7 || actid == 3)
+	{
+		diamond -= 5;
+	}
+	else if(actid == 4)
+	{
+		diamond -= 10;
+	}
+	if(goldNum >= 0 && diamond >= 0)
+	{
+		return response.error('参数错误!');
+	}
+	redisClient.incr("Notice:"+userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('Notice:'+userID, 1);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			data.increment('goldNum', goldNum);
+			data.increment('Diamond', diamond);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success('ok');
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+
+});
+
 
 module.exports = AV.Cloud;
