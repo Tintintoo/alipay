@@ -1533,7 +1533,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return AV.Object.saveAll(saveObj);
 		}).then(function(success)
 		{
-			response.success({'goldNum':goldNum,'diamond':diamond,'upgrade',up,'exp',exp});
+			response.success({'goldNum':goldNum,'diamond':diamond,'upgrade':up,'exp':exp});
 		}).catch(function(error)
 		{
 			response.error({'error':error, 'time':needTime});
