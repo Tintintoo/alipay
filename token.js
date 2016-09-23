@@ -1138,7 +1138,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 	})
 });
 
-AV.Cloud.define('DaySign', function(resquest, response)
+AV.Cloud.define('DaySign', function(request, response)
 {
 	var userID = request.params.userID;
 	var goldNum = parseInt(300 + Math.random()*300);
