@@ -3,6 +3,7 @@ var redisClient = require('./redis').redisClient;
 var common = require('./common');
 var chatUsers = AV.Object.extend('chatUsers');
 var userLog = AV.Object.extend('userLog');
+var building = AV.Object.extend('building');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
@@ -180,40 +181,40 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 		{
 			return response.error('无法识别的操作!');
 		}
-		console.log(code);
 		return AV.Cloud.verifySmsCode(code, phoneNumber).then(function(success)
 		{
+			var query1 = new AV.Query('chatUsers');
+			query1.equalTo('MobilePhone', phoneNumber);
 
-			//注册账号
-			if(type == 1)
-			{
-				var obj = new chatUsers();
-				obj.set('sex', 1);
-				obj.set('userLabels', '3');
-				obj.set('receiveType', 3);
-				obj.set('bAlreadyComment', 0);
-				obj.set('bAlreadyYQ', 0);
-				obj.set('bSexSetable', 1);
-				obj.set('petReword', 10);
-				obj.set('myState', -1);
-				obj.set('MobilePhone', encodePhone);
-				obj.fetchWhenSave(true);
-				return obj.save();
-			}
-			else
-			{
-				var query1 = new AV.Query('chatUsers');
-				query1.equalTo('MobilePhone', phoneNumber);
+			var query2 = new AV.Query('chatUsers');
+			query2.equalTo('MobilePhone', encodePhone);
 
-				var query2 = new AV.Query('chatUsers');
-				query2.equalTo('MobilePhone', encodePhone);
-
-				return AV.Query.or(query1, query2).first();
-			}
+			return AV.Query.or(query1, query2).first();
 		}).then(function(data){
 			if(!data)
 			{
-				return AV.Promise.error('数据库出错!');
+				if(type == 1)//注册账号
+				{
+					var obj = new chatUsers();
+					obj.set('sex', 1);
+					obj.set('userLabels', '3');
+					obj.set('receiveType', 3);
+					obj.set('bAlreadyComment', 0);
+					obj.set('bAlreadyYQ', 0);
+					obj.set('bSexSetable', 1);
+					obj.set('petReword', 10);
+					obj.set('myState', -1);
+					obj.set('MobilePhone', encodePhone);
+					data.set('Passwd', passwd);
+					obj.fetchWhenSave(true);
+					return obj.save();
+				}
+				else 
+					return AV.Promise.error('数据库出错!');
+			}
+			if(type == 1)
+			{
+				return AV.Promise.error('该手机已经被注册了!');
 			}
 			data.set('Passwd', passwd);
 			data.save();
@@ -221,7 +222,8 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 			userID = data.get('userID');
 			return redisClient.getAsync('token:'+userID);
 			
-		}).then(function(cache){
+		}).then(function(cache)
+		{
 			var token = common.createToken();
 			if(cache)
 			{
@@ -713,6 +715,10 @@ AV.Cloud.define('increaseGold', function(request, response)
 		else if(tag == 13)
 		{
 			gold = 50;
+		}
+		else if(tag == 14)
+		{
+			gold = -50;
 		}
 		return new AV.Query('chatUsers').equalTo('userID', userID).first();
 	}).then(function(data)
@@ -1295,7 +1301,6 @@ AV.Cloud.define('sendNotice', function(request, response)
 		return response.error('参数错误!');
 	}
 	var now = new Date();
-	var freeHorn = {};
 	redisClient.incr("Notice:"+userID, function(err, id)
 	{
 		if(err || id > 1)
@@ -1313,43 +1318,9 @@ AV.Cloud.define('sendNotice', function(request, response)
 					return AV.Promise.error('访问失败!');
 				}
 			}
-			return redisClient.getAsync('freeHorn:'+userID);
-		}).then(function(cache)
-		{
-			if(cache)
-			{
-				freeHorn = JSON.parse(cache);
-			}
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
-			if(type == 1 && data.get('BonusPoint') > 0)//飞屏喇叭判断是否有免费次数
-			{
-				var vip = common.getVipType(data.get('BonusPoint'));
-				console.log(freeHorn);
-				if(freeHorn.date && common.checkDaySame(freeHorn.date, new Date()))
-				{
-					if(freeHorn.count >= 0)
-					{
-						goldNum = 0;
-						freeHorn.count -= 1;
-					}
-					if(goldNum == 0 && diamond == 0)
-					{
-						return AV.Promise.as('success');
-					}
-				}
-				else
-				{
-					freeHorn.count = 4;
-					freeHorn.date = now;
-					goldNum = 0;
-					if(goldNum == 0 && diamond == 0)
-					{
-						return AV.Promise.as('success');
-					}
-				}
-			}
 			if(goldNum < 0 && data.get('goldNum') < -1 * goldNum)
 			{
 				return AV.Promise.error('金币不足!');
@@ -1363,14 +1334,112 @@ AV.Cloud.define('sendNotice', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
-			redisClient.setAsync('freeHorn:'+userID, JSON.stringify(freeHorn));
 			response.success({'goldNum':goldNum, 'diamond':diamond});
 		}).catch(function(error)
 		{
 			response.error(error);
 		});
 	});
+});
 
+AV.Cloud.define('buyBuildItem', function(request, response)
+{
+	var userID = request.params.userID;
+	var itemID = request.params.itemID;
+	var itemType = request.params.itemType;
+	var price = common.getBuildingItemPrice(itemID, itemType);
+	if ((!price.gold && ! price.diamond) || (price.gold <= 0 && price.diamond <= 0))
+	{
+		return response.error('参数错误!');
+	}
+
+	redisClient.incr("buyBuildItem:"+userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('buyBuildItem:'+userID, 1);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(price.gold > 0)
+			{
+				if(price.gold > data.get('goldNum'))
+				{
+					return AV.Promise.error('金币不足!');
+				}
+				else
+				{
+					data.increment('goldNum', -1*price.gold);
+				}
+			}
+			if(price.diamond > 0)
+			{
+				if(price.diamond > data.get('Diamond'))
+				{
+					return AV.Promise.error('钻石不足!');
+				}
+				else
+				{
+					data.increment('Diamond', -1*diamond);
+				}
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			var obj = new building();
+			obj.set('buildingType', itemType);
+			if(itemType == 4 && itemID == 8)
+			{
+				obj.set('buidlingSize', 2);
+			}
+			else
+			{
+				obj.set('buidlingSize', 1);
+			}
+			obj.set('floorID', request.params.floor.join(','));
+			obj.set('userID', userID);
+			obj.set('buildingID', itemID);
+			obj.set('buidlingLevel', 1);
+			obj.set('exp', 0);	
+			obj.set('isLock', 1);
+			obj.set('plant', 0);
+			if(price.diamond > 0)
+			{
+				obj.set('value', price.diamond);
+				obj.set('isDiamond', 1);
+			}
+			else
+			{
+				obj.set('value', price.gold);
+				obj.set('isDiamond', 0);
+			}
+			if(itemType == 4 && itemID == 8)
+			{
+				var time = parseInt(new Date().getTime()/1000 + 3600*72);
+				obj.set('buildingEnd', time);
+			}
+			obj.set('buildingName', price.name);
+			return obj.save();
+		}).then(function(success)
+		{
+			response.success(price);
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
 });
 
 

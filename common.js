@@ -190,3 +190,48 @@ exports.FormatDate = function(date)
     date.getMinutes()+':'+date.getSeconds();
     return ret;
 }
+exports.getBuildingItemPrice = function(itemID, itemType)
+{
+    if(itemType == 2)
+    {
+        var floor = [{gold:100, name:'简易路面'},{gold:300, name:'长草路面'},{gold:500, name:'园石路面'},
+        {gold:1000, name:'砖石路面'},{gold:2000, name:'广场'},{gold:1000, name:'粉色拼接'},{gold:500, name:'密集砖石'},
+        {gold:3000, name:'星星闪光'},{gold:1500, name:'冰冻路面'},{diamond:15, name:'熊出没'},{diamond:20, name:'金光闪闪'},
+        {gold:1500, name:'高速公路'},{diamond:30, name:'奢华路面'}];
+        if(itemID >= 1 && itemID <= 13)
+        {
+            return floor[itemID-1];
+        }
+        else
+        {
+            return {};
+        }
+    }
+    else if(itemType == 4)
+    {
+        var decorate = [{gold:200, name:'灌木丛'},{gold:500, name:'大树'},{gold:1000, name:'竹子'},
+        {gold:1000, name:'树丛'},{gold:1500, name:'路灯'},{gold:1500, name:'花丛'},{gold:2000, name:'红花'},
+        {diamond:99, name:'爱情树'}];
+        if(itemID >= 1 && itemID <= 8)
+        {
+            return decorate[itemID -1];
+        }
+        else
+        {
+            return {};
+        }
+    }
+    else if(itemType == 3)
+    {
+        var plant = [{gold:300},{gold:500},{gold:1500},{gold:2700},{gold:5000},{gold:8000},{gold:12000},{gold:15000},{gold:20000}];
+        if(itemID >= 1 && itemID <= 10)
+        {
+            return plant[itemID -1];
+        }
+        else
+        {
+            return {};
+        }
+    }
+    return {};
+}
