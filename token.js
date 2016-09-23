@@ -6,14 +6,12 @@ var userLog = AV.Object.extend('userLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
-	
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
 	var md5pwd = request.params.md5pwd;
 	var userID = -1;
 
-	
 	var query1 = new AV.Query('chatUsers');
 	query1.equalTo('MobilePhone', phoneNumber);
 
@@ -1246,7 +1244,7 @@ AV.Cloud.define('sendNotice', function(request, response)
 	}
 	else if(type == 1)
 	{
-		goldNum -= 500;
+		goldNum = -500;
 	}
 	if(actid == 1)
 	{
@@ -1288,6 +1286,14 @@ AV.Cloud.define('sendNotice', function(request, response)
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
+			if(goldNum < 0 && data.get('goldNum') < -1 * goldNum)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			if(diamond < 0 && data.get('Diamond') < -1 * diamond)
+			{
+				return AV.Promise.error('钻石不足!');
+			}
 			data.increment('goldNum', goldNum);
 			data.increment('Diamond', diamond);
 			return data.save();
