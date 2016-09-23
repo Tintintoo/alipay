@@ -797,7 +797,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			response.error('访问频繁!');
 		}
 		redisClient.expire(key, 2);
-		
+
 		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
 			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
@@ -814,7 +814,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			{
 				var gold = data.get('gold');
 				var goldMax = data.get('goldMax');
-				var silver = parseInt(goldMax * 0.1);
+				silver = parseInt(goldMax * 0.1);
 				if(gold < goldMax * 0.4)
 				{
 					return AV.Promise.error('银币不足,无法偷取!');
