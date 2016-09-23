@@ -797,7 +797,8 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			response.error('访问频繁!');
 		}
 		redisClient.expire(key, 2);
-		return new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
+		
+		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
 			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
 			if(userID == data.get('userID'))//自己收获
