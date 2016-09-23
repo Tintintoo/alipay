@@ -567,13 +567,13 @@ AV.Cloud.define('shareLike', function(request, response)
 	var goldMax = 0;
 	var goldEach = 0;
 
-	return redisClient.incr('shareLike:'+shareID,function(err, id) 
+	return redisClient.incr('shareLike:'+shareID, function(err, id) 
 	{
 		if(err || id > 1)
 		{
 			return response.error('访问太过频繁!');
 		}
-		redisClient.expire(key, 1);
+		redisClient.expire('shareLike:'+shareID, 1);
 		
 		return redisClient.getAsync('token:' + userID).then(function(cache)
 		{	
