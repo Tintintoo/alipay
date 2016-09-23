@@ -1237,35 +1237,65 @@ AV.Cloud.define('sendNotice', function(request, response)
 	if(type == 5)//普通广播
 	{
 		goldNum = -200;
+		if(actid == 1)
+		{
+			diamond -= 1;
+		}
+		else if(actid == 2 || actid == 5 || actid == 6)
+		{
+			diamond -= 2;
+		}
+		else if(actid == 7 || actid == 3 || actid == 4)
+		{
+			diamond -= 3;
+		}
 	}
 	else if(type == 6)
 	{
 		diamond = -5;
+		if(actid == 1)
+		{
+			diamond -= 2;
+		}
+		else if(actid == 2 || actid == 5 || actid == 6)
+		{
+			diamond -= 4;
+		}
+		else if(actid == 7 || actid == 3 )
+		{
+			diamond -= 6;
+		}
+		else if(actid == 4)
+		{
+			diamond -= 12;
+		}
 	}
 	else if(type == 1)
 	{
 		goldNum = -500;
-	}
-	if(actid == 1)
-	{
-		diamond -= 1;
-	}
-	else if(actid == 2 || actid == 5 || actid == 6)
-	{
-		diamond -= 3;
-	}
-	else if(actid == 7 || actid == 3)
-	{
-		diamond -= 5;
-	}
-	else if(actid == 4)
-	{
-		diamond -= 10;
+		if(actid == 1)
+		{
+			diamond -= 1;
+		}
+		else if(actid == 2 || actid == 5 || actid == 6)
+		{
+			diamond -= 3;
+		}
+		else if(actid == 7 || actid == 3 )
+		{
+			diamond -= 5;
+		}
+		else if(actid == 4)
+		{
+			diamond -= 10;
+		}
 	}
 	if(goldNum >= 0 && diamond >= 0)
 	{
 		return response.error('参数错误!');
 	}
+	var now = new Date();
+	var freeHorn = {};
 	redisClient.incr("Notice:"+userID, function(err, id)
 	{
 		if(err || id > 1)
@@ -1283,9 +1313,42 @@ AV.Cloud.define('sendNotice', function(request, response)
 					return AV.Promise.error('访问失败!');
 				}
 			}
+			return redisClient.getAsync('freeHorn:'+userID);
+		}).then(function(cache)
+		{
+			if(cache)
+			{
+				freeHorn = JSON.parse(cache);
+			}
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
+			if(type == 1 && data.get('BonusPoint') > 0)//飞屏喇叭判断是否有免费次数
+			{
+				var vip = common.getVipType(data.get('BonusPoint'));
+				if(freeHorn.date && common.checkDaySame(now, freeHorn.date))
+				{
+					if(freeHorn.count >= 0)
+					{
+						goldNum = 0;
+						freeHorn.count -= 1;
+					}
+					if(goldNum == 0 && diamond == 0)
+					{
+						return AV.Promise.as('success');
+					}
+				}
+				else
+				{
+					freeHorn.count = 4;
+					freeHorn.date = now;
+					goldNum = 0;
+					if(goldNum == 0 && diamond == 0)
+					{
+						return AV.Promise.as('success');
+					}
+				}
+			}
 			if(goldNum < 0 && data.get('goldNum') < -1 * goldNum)
 			{
 				return AV.Promise.error('金币不足!');
@@ -1299,7 +1362,8 @@ AV.Cloud.define('sendNotice', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
-			response.success('ok');
+			redisClient.setAsync('freeHorn:'+userID, JSON.stringify(freeHorn));
+			response.success({'goldNum':goldNum, 'diamond':diamond});
 		}).catch(function(error)
 		{
 			response.error(error);
