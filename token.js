@@ -252,7 +252,7 @@ AV.Cloud.define('updateUserInfo', function(request, response)
 	for (var i = fields.length - 1; i >= 0; i--) {
 		if(fields[i] == 'goldNum' || fields[i] == 'goldMax' || fields[i] == 'Diamond' ||
 			fields[i] == 'Passwd' || fields[i] == 'BonusPoint' || fields[i] == 'MobilePhone'||
-			fields[i] == 'userID')
+			fields[i] == 'userID' || fields[i] == 'lastQDtime')
 		{
 			return response.error('数据异常!');
 		}
@@ -704,6 +704,18 @@ AV.Cloud.define('increaseGold', function(request, response)
 		{
 			gold = -2000;
 		}
+		else if(tag == 11)
+		{
+			gold = 200;
+		}
+		else if(tag == 12)
+		{
+			gold = 100;
+		}
+		else if(tag == 13)
+		{
+			gold = 50;
+		}
 		return new AV.Query('chatUsers').equalTo('userID', userID).first();
 	}).then(function(data)
 	{
@@ -825,19 +837,16 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				}
 			}
 			data.increment('gold', -1 * silver);
-			console.log('silver'+silver);
 			return data.save();
 		}).then(function(success)
 		{
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
-			console.log('silver'+silver);
 			data.increment('silverCoin', silver);
 			return data.save();
 		}).then(function(success)
 		{
-			console.log('silver'+silver);
 			response.success({'silver':silver});
 		}).catch(function(error)
 		{
@@ -1045,6 +1054,174 @@ AV.Cloud.define('resetUserInfo', function(request, response)
 	{
 		response.error(error);
 	});
+});
+
+AV.Cloud.define('useDiamond', function(request, response)
+{
+	var userID = request.params.userID;
+	var tag = request.params.tag;
+	var diamond  = 0;
+	if(tag == 1)
+	{
+		diamond = -100;
+	}
+	else if(tag == 2)
+	{
+		diamond = -10;
+	}
+	else if(tag == 3)
+	{
+		diamond = -5;
+	}
+	else if(tag == 4)
+	{
+		diamond = -10;
+	}
+	else if(tag == 5)
+	{
+		diamond = -20;
+	}
+	else if(tag == 6)
+	{
+		diamond = -50;
+	}
+	else if(tag == 7)
+	{
+		diamond = -100;
+	}
+	else if(tag == 8)
+	{
+		diamond = -200;
+	}
+	else if(tag == 11)
+	{
+		diamond = -5;
+	}
+	else if(tag == 12)
+	{
+		diamond = -10;
+	}
+	if(diamond >= 0)
+	{
+		return response.error('参数错误!');
+	}
+	return redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data)
+	{
+		data.increment('Diamond', diamond);
+		data.increment('useGold', -100 * diamond);
+		if (data.get('dailyUseGoldAt') && common.checkDaySame(new Data(), data.get('dailyUseGoldAt')))
+		{
+			data.increment('dailyUseGold', -100 * diamond);
+		}
+		else
+		{
+			data.set('dailyUseGold', -100 * diamond);
+		}
+		return data.save();
+	}).then(function(success)
+	{
+		response.success({Diamond:diamond});
+	}).catch(function(error)
+	{
+		response.error('失败!');
+	})
+});
+
+AV.Cloud.define('DaySign', function(resquest, response)
+{
+	var userID = request.params.userID;
+	var goldNum = parseInt(300 + Math.random()*300);
+	var goldVip = 0;
+	var goldMax = 0;
+	redisClient.incr("DaySign:"+userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('DaySign:'+userID, 60);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			var last = data.get('lastQDtime');
+			if(last && common.checkDaySame(last, new Date()))
+			{
+				return AV.Promise.error('已经签到过了!');
+			}
+			else
+			{
+				data.set('lastQDtime', common.FormatDate(new Date()));
+				var vip = common.getVipType(data.get('BonusPoint'));
+				if(vip > 0)
+				{
+					goldVip = vip * 100;
+					if(Math.random() > 0.5)
+					{
+						goldMax = parseInt(30 + Math.random()*120);
+					}
+				}
+				else if(Math.random() > 0.2)
+				{
+					goldMax = parseInt(30 + Math.random()*120);
+				}
+				data.increment('goldNum', gold+goldVip);
+				if(goldMax > 0)
+				{
+					data.increment('goldMax', goldMax);
+				}
+				return data.save();
+			}
+		}).then(function(success)
+		{
+			return new AV.Query('qianDaoInfo').first();
+		}).then(function(data)
+		{
+			var newValue = userID+'-'+'获得金币	'+(goldNum + goldVip);
+			if(goldMax > 0)
+			{
+				newValue += ' 金币上限'+goldMax;
+			}
+			if(common.checkDaySame(data.updatedAt, new Date()))//同一天
+			{
+				newValue += data.get('qdIDs');
+				data.increment('qdTotal', 1);
+				data.set('qdIDs', newValue);
+			}
+			else
+			{
+				data.set('qdTotal', 1);
+				data.set('qdIDs', newValue);
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({'goldNum':goldNum, 'goldVip':goldVip,'goldMax':goldMax});
+		}).catch(function(error)
+		{
+			response.error(error);
+		})
+	})
 });
 
 
