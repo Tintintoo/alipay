@@ -1185,7 +1185,7 @@ AV.Cloud.define('DaySign', function(request, response)
 				{
 					goldMax = parseInt(30 + Math.random()*120);
 				}
-				data.increment('goldNum', gold+goldVip);
+				data.increment('goldNum', goldNum+goldVip);
 				if(goldMax > 0)
 				{
 					data.increment('goldMax', goldMax);
