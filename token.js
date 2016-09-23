@@ -1164,7 +1164,7 @@ AV.Cloud.define('DaySign', function(request, response)
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
-			var last = data.get('lastQDtime');
+			var last = new Date( data.get('lastQDtime').replace(/-/g,"/"));
 			if(last && common.checkDaySame(last, new Date()))
 			{
 				return AV.Promise.error('已经签到过了!');
