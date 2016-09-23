@@ -824,16 +824,19 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				}
 			}
 			data.increment('gold', -1 * silver);
+			console.log('silver'+silver);
 			return data.save();
 		}).then(function(success)
 		{
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
+			console.log('silver'+silver);
 			data.increment('silverCoin', silver);
 			return data.save();
 		}).then(function(success)
 		{
+			console.log('silver'+silver);
 			response.success({'silver':silver});
 		}).catch(function(error)
 		{
