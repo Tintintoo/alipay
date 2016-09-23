@@ -1398,42 +1398,6 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
-			var obj = new building();
-			obj.set('buildingType', itemType);
-			if(itemType == 4 && itemID == 8)
-			{
-				obj.set('buidlingSize', 2);
-			}
-			else
-			{
-				obj.set('buidlingSize', 1);
-			}
-			obj.set('floorID', request.params.floor.join(','));
-			obj.set('userID', userID);
-			obj.set('buildingID', itemID);
-			obj.set('buidlingLevel', 1);
-			obj.set('exp', 0);	
-			obj.set('isLock', 1);
-			obj.set('plant', 0);
-			if(price.diamond > 0)
-			{
-				obj.set('value', price.diamond);
-				obj.set('isDiamond', 1);
-			}
-			else
-			{
-				obj.set('value', price.gold);
-				obj.set('isDiamond', 0);
-			}
-			if(itemType == 4 && itemID == 8)
-			{
-				var time = parseInt(new Date().getTime()/1000 + 3600*72);
-				obj.set('buildingEnd', time);
-			}
-			obj.set('buildingName', price.name);
-			return obj.save();
-		}).then(function(success)
-		{
 			response.success(price);
 		}).catch(function(error)
 		{

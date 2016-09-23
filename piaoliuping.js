@@ -1420,6 +1420,25 @@ AV.Cloud.define('recoveryBuilding',function(request, response)
 		{
 			gold = parseInt(data.get('value') /2);
 		}
+		var price = common.getBuildingItemPrice(data.get('buildingID'), data.get('buildingType'));
+		if ((!price.gold && ! price.diamond) || (price.gold <= 0 && price.diamond <= 0))
+		{
+			return AV.Promise.error('参数错误!');
+		}
+		if (price.gold > 0 )
+		{
+			if(data.get('value') > price.gold || data.get('isDiamond') == 1)
+			{
+				return AV.Promise.error('建筑异常!');
+			}
+		}
+		if (price.diamond > 0)
+		{
+			if(data.get('value') > price.diamond )
+			{
+				return AV.Promise.error('建筑异常!');
+			}
+		}
 		userID = data.get('userID');
 		return data.destroy(); 
 	}).then(function(data)
