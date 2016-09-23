@@ -1327,7 +1327,7 @@ AV.Cloud.define('sendNotice', function(request, response)
 			{
 				var vip = common.getVipType(data.get('BonusPoint'));
 				console.log(freeHorn);
-				if(freeHorn.date && common.checkDaySame(now, freeHorn.date))
+				if(freeHorn.date && common.checkDaySame(freeHorn.date, new Date()))
 				{
 					if(freeHorn.count >= 0)
 					{
