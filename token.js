@@ -1197,11 +1197,12 @@ AV.Cloud.define('DaySign', function(request, response)
 			return new AV.Query('qianDaoInfo').first();
 		}).then(function(data)
 		{
-			var newValue = userID+'-'+'获得金币	'+(goldNum + goldVip);
+			var newValue = userID+'-'+'获得金币'+(goldNum + goldVip);
 			if(goldMax > 0)
 			{
 				newValue += ' 金币上限'+goldMax;
 			}
+			newValue += ',';
 			if(common.checkDaySame(data.updatedAt, new Date()))//同一天
 			{
 				newValue += data.get('qdIDs');
