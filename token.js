@@ -1441,7 +1441,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			{
 				return AV.Promise.error('数据异常!');
 			}
-			var now = parseInt(new Date().getTime() / 1000) + 3600 * 8;
+			var now = parseInt(new Date().getTime() / 1000);
 
 			if(request.params.gold == 1)//金币培养
 			{
