@@ -1637,7 +1637,7 @@ AV.Cloud.define('growPlant', function(request, response)
 {
 	var userID = request.params.userID;
 	var itemID = request.params.itemID;
-	var fieldTag = request.params.fieldNo;
+	var fieldTag = request.params.fieldNo - 1;
 
 	var saveObj = [];
 	var price = common.getBuildingItemPrice(itemID, 3);
@@ -1674,7 +1674,7 @@ AV.Cloud.define('growPlant', function(request, response)
 			saveObj.push(data);
 			var query = new AV.Query('building');
 			query.equalTo('userID', userID);
-			query.equalTo('floorID', fieldTag - 1);
+			query.equalTo('floorID', fieldTag.toString());
 			return query.first();
 		}).then(function(data)
 		{
