@@ -1566,8 +1566,14 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			{
 				return AV.Object.saveAll(saveObj);
 			}
-			data.increment('goldNum', goldNum);
-			data.increment('Diamond', diamond);
+			if(goldNum < 0)
+			{
+				data.increment('goldNum', goldNum);
+			}
+			if(diamond < 0)
+			{
+				data.increment('Diamond', diamond);
+			}
 			saveObj.push(data);
 			return AV.Object.saveAll(saveObj);
 		}).then(function(success)
