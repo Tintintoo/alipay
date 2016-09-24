@@ -7,6 +7,7 @@ var building = AV.Object.extend('building');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
+	console.log("接到请求!");
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
