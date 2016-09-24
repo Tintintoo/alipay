@@ -1671,7 +1671,10 @@ AV.Cloud.define('growPlant', function(request, response)
 			{
 				return AV.Promise.error('金币不足!');
 			}
-			saveObj.push(data);
+			data.increment('goldNum', -1*price.gold);
+			return data.save();
+		}).then(function(success)
+		{
 			var query = new AV.Query('building');
 			query.equalTo('userID', userID);
 			query.equalTo('floorID', fieldTag.toString());
@@ -1686,9 +1689,7 @@ AV.Cloud.define('growPlant', function(request, response)
 			data.set('plantTime', parseInt(now.getTime()/1000));
 			data.set('plantCount', price.count);
 			data.set('plantMax', price.count);
-			saveObj[0].increment('goldNum', -1*price.gold);
-			saveObj.push(data);
-			return AV.Object.saveAll();
+			data.save();
 		}).then(function(success)
 		{
 			response.success(price);
