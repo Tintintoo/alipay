@@ -1416,8 +1416,10 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 	var up = 0;
 	var needTime = 0;
 	var exp = 0;
+	var step = '0';
 	redisClient.incr("cultureBuilding:"+userID, function(err, id)
 	{
+		step += 1;
 		if(err || id > 1)
 		{
 			return response.error('访问频繁');
@@ -1426,6 +1428,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 
 		return redisClient.getAsync('token:' + userID).then(function(cache)
 		{	
+			step += 2;
 			if(!cache || cache != request.params.token)
 			{
 				//评价人的令牌与userid不一致
@@ -1437,6 +1440,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return new AV.Query('building').equalTo('buildingNo', request.params.buildNo).first();
 		}).then(function(data)
 		{
+			step += 3;
 			if(!data)
 			{
 				return AV.Promise.error('查询用户建筑失败!');
@@ -1520,6 +1524,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
+			step += 4;
 			if(!data)
 			{
 				return AV.Promise.error('查询用户信息失败!');
@@ -1542,10 +1547,11 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return AV.Object.saveAll(saveObj);
 		}).then(function(success)
 		{
-			response.success({'goldNum':goldNum,'diamond':diamond,'upgrade':up,'exp':exp});
+			step += 5;
+			response.success({'goldNum':goldNum,'diamond':diamond,'upgrade':up,'exp':exp, 'step':step});
 		}).catch(function(error)
 		{
-			response.error({'error':error, 'time':needTime});
+			response.error({'error':error, 'time':needTime, 'step':step});
 		});
 	});
 
