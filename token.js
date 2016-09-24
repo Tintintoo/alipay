@@ -275,14 +275,7 @@ AV.Cloud.define('updateUserInfo', function(request, response)
 			if(fields[i] == 'location')
 			{
 				var point = JSON.parse(values[i]);
-				if(point.lat == 0 && point.long == 0)
-				{
-					data.set('location', new AV.GeoPoint(null));
-				}
-				else
-				{
-					data.set('location', new AV.GeoPoint(point));
-				}
+				data.set('location', new AV.GeoPoint(point.lat, point.long));
 			}
 			else
 			{	
