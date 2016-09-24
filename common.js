@@ -299,3 +299,9 @@ exports.getBuildingExp = function(nLevel)
         return 1000000;
     }
 }
+exports.getExpandPrice=function(value)
+{
+    var floor = {1:{gold:100}, 24:{gold:500}, 47:{gold:1000}, 8:{gold:2000}, 23:{gold:5000}, 46:{gold:10000}, 
+    7:{gold:40000}, 22:{gold:80000}, 45:{gold:200000}};
+    return floor[value];
+}

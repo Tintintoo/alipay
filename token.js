@@ -1700,4 +1700,63 @@ AV.Cloud.define('growPlant', function(request, response)
 	});
 });
 
+AV.Cloud.define('expandField', function(request, response)
+{
+	var userID = request.params.userID;
+	var buildNo = request.params.buildNo;
+	var saveObj = [];
+	var price = {};
+
+	redisClient.incr("expandField:" + buildNo, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('buildNo:' + buildNo, 1);
+
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('building').equalTo('buildingNo', buildNo).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('buildingType') != 3 || data.get('isLock') == 0)
+			{
+				return AV.Promise.error('土地数据有误,请退出重新刷新!');
+			}
+			price = common.getExpandPrice(data.get('floorID'));
+			if(!price.gold || price.gold <= 0)
+			{
+				return AV.Promise.error('土地编号有误!');
+			}
+			data.set('isLock', 0);
+			saveObj.push(data);
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('goldNum') < price.gold)
+			{
+				return AV.Promise.error('金币不足,无法扩建!');
+			}
+			data.increment('goldNum', -1*price.gold);
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}).then(function(success)
+		{
+			response.success(price);
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
 module.exports = AV.Cloud;
