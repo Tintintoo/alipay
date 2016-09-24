@@ -1454,7 +1454,11 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			if(request.params.gold == 1)//金币培养
 			{
 				exp = 10;
-				var culture = new Date(data.get('lastGoldAt').replace(/-/g,"/"));
+				var culture = new Date(new Date().getTime() - 86400000);
+				if(data.get('lastGoldAt') && data.get('lastGoldAt').length > 0)
+				{
+					culture = new Date(data.get('lastGoldAt').replace(/-/g,"/"));
+				}
 				if(now - data.get('lastCultureAt') > 3600 * 4)//超过4小时 免费一次
 				{
 					data.set('lastCultureAt', now);
@@ -1488,7 +1492,11 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			}
 			else
 			{
-				var culture = new Date(data.get('lastDiamondAt').replace(/-/g,"/"));
+				var culture = new Date(new Date().getTime() - 86400000);
+				if(data.get('lastDiamondAt') && data.get('lastDiamondAt').length > 0)
+				{
+					culture = new Date(data.get('lastDiamondAt').replace(/-/g,"/"));
+				}
 				exp = 40;
 				if(common.checkDaySame(new Date(), culture))
 				{
