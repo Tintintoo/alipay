@@ -1450,7 +1450,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				return AV.Promise.error('数据异常!');
 			}
 			var now = parseInt(new Date().getTime() / 1000);
-
+			step += -1;
 			if(request.params.gold == 1)//金币培养
 			{
 				exp = 10;
@@ -1521,6 +1521,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				}
 				saveObj.push(data);
 			}
+			step += -2;
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
