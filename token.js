@@ -1631,6 +1631,69 @@ AV.Cloud.define('quickBuild', function(request, response)
 	{
 		response.error(error);
 	})
-})
+});
+
+AV.Cloud.define('growPlant', function(request, response)
+{
+	var userID = request.params.userID;
+	var itemID = request.params.itemID;
+	var fieldTag = request.params.fieldNo;
+
+	var saveObj = [];
+	var price = common.getBuildingItemPrice(itemID, 3);
+	if(!price.gold || price.gold <= 0)
+	{
+		return response.error('参数错误!');
+	}
+	var now = new Date();
+	redisClient.incr("growPlant:"+fieldTag, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('growPlant:' + fieldTag, 1);
+
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(data.get('goldNum') < price.gold)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			saveObj.push(data);
+			return AV.Query('building').equalTo('userID', userID).equalTo('floorID', fieldTag - 1).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('buildingType') != 3 || data.get('isLock') == 1)
+			{
+				return AV.Promise.error('请选择一块正确的土地种植!');
+			}
+			data.set('plant', itemID);
+			data.set('plantTime', parseInt(now.getTime()/1000));
+			data.set('plantCount', price.count);
+			data.set('plantMax', price.count);
+			saveObj[0].increment('goldNum', -1*price.gold);
+			saveObj.push(data);
+			return AV.Object.saveAll();
+		}).then(function(success)
+		{
+			response.success(price);
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
 
 module.exports = AV.Cloud;

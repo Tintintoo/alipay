@@ -223,7 +223,8 @@ exports.getBuildingItemPrice = function(itemID, itemType)
     }
     else if(itemType == 3)
     {
-        var plant = [{gold:300},{gold:500},{gold:1500},{gold:2700},{gold:5000},{gold:8000},{gold:12000},{gold:15000},{gold:20000}];
+        var plant = [{gold:300,count:12},{gold:500,count:14},{gold:1500,count:16},{gold:2700,count:18},{gold:5000,count:20}
+        ,{gold:8000, count:22},{gold:12000,count:24},{gold:15000,count:26},{gold:20000,count:28},{gold:30000, count:30}];
         if(itemID >= 1 && itemID <= 10)
         {
             return plant[itemID -1];
