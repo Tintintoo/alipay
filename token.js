@@ -1530,7 +1530,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					data.set('goldCount', 2);
 				}
 				data.increment('exp', exp);
-				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')+1))
+				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
 					var level = data.increment('buildingLevel');
