@@ -1482,7 +1482,6 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 						data.set('goldCount', 9);
 					}
 				}
-				data.increment('exp', 10);
 				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
@@ -1496,6 +1495,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					data.increment('buildingLevel', 1);
 					data.set('buildingEnd', nTime);
 				}
+				data.increment('exp', 10);
 				saveObj.push(data);
 			}
 			else
@@ -1529,7 +1529,6 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					diamond = -50;
 					data.set('goldCount', 2);
 				}
-				data.increment('exp', exp);
 				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
@@ -1543,6 +1542,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					data.increment('buildingLevel', 1);
 					data.set('buildingEnd', nTime);
 				}
+				data.increment('exp', exp);
 				saveObj.push(data);
 			}
 			step += -2;
