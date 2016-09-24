@@ -1672,7 +1672,10 @@ AV.Cloud.define('growPlant', function(request, response)
 				return AV.Promise.error('金币不足!');
 			}
 			saveObj.push(data);
-			return AV.Query('building').equalTo('userID', userID).equalTo('floorID', fieldTag - 1).first();
+			var query = AV.Query('building');
+			query.equalTo('userID', userID);
+			query.equalTo('floorID', fieldTag - 1);
+			return query.first();
 		}).then(function(data)
 		{
 			if(!data || data.get('buildingType') != 3 || data.get('isLock') == 1)
