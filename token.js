@@ -1437,6 +1437,10 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return new AV.Query('building').equalTo('buildingNo', request.params.buildNo).first();
 		}).then(function(data)
 		{
+			if(!data)
+			{
+				return AV.Promise.error('查询用户建筑失败!');
+			}
 			if(data.get('userID') != userID)
 			{
 				return AV.Promise.error('数据异常!');
@@ -1516,6 +1520,10 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
+			if(!data)
+			{
+				return AV.Promise.error('查询用户信息失败!');
+			}
 			if(goldNum < 0 && data.get('goldNum') < -1*goldNum)
 			{
 				return AV.Promise.error('金币不足!');
