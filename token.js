@@ -1480,7 +1480,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					up = 1;
 					var level = data.get('buildingLevel');
 					var nTime  = 3600 * 4;
-					for (var i = 0; i< level; i++)
+					for (var i = 1; i< level; i++)
 					{
 						nTime *= 2;
 					}
@@ -1527,7 +1527,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					up = 1;
 					var level = data.get('buildingLevel');
 					var nTime  = 3600 * 4;
-					for (var i = 0; i< level; i++)
+					for (var i = 1; i< level; i++)
 					{
 						nTime *= 2;
 					}
@@ -1581,5 +1581,56 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 
 });
 
+AV.Cloud.define('quickBuild', function(request, response)
+{
+	var userID = request.params.userID;
+	var buildNo = request.params.buildNo;
+	var now = parseInt(new Date()/ 1000);
+	var diamond = 0;
+	var saveObj = [];
+	return redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('building').equalTo('buildingNo', buildNo).first();
+	}).then(function(data)
+	{
+		if(data.get('userID') != userID)
+		{
+			return AV.Promise.error('数据异常!');
+		}
+		var needTime = data.get('buildingEnd');
+		//每加速10分钟需要一个钻石
+		diamond = -1 * parseInt((needTime - now) / 600);
+		if(diamond >= 0)
+		{
+			return AV.Promise.error("建筑无法加速!");
+		}
+		data.set('buildingEnd', 0);
+		saveObj.push(data);
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data)
+	{
+		if(data.get('Diamond') < -1 * diamond)
+		{
+			return AV.Promise.error('钻石不足,无法加速!');
+		}
+		data.increment('Diamond', diamond);
+		saveObj.push(data);
+		return AV.Object.saveAll(saveObj);
+	}).then(function(success)
+	{
+		response.success({'diamond':diamond});
+	}).catch(function(error)
+	{
+		response.error(error);
+	})
+})
 
 module.exports = AV.Cloud;
