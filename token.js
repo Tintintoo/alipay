@@ -1478,12 +1478,12 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 					else
 					{
 						data.set('lastGoldAt', common.FormatDate(new Date()));
-						goldNum = -1000;
+						goldNum = -1200;
 						data.set('goldCount', 9);
 					}
 				}
 				data.increment('exp', 10);
-				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')+1))
+				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
 					data.increment('buildingLevel', 1);
