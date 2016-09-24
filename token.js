@@ -1460,7 +1460,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 						{
 							return AV.Promise.error('可培养次数不足!');
 						}
-						goldNum = -1000 + (data.get('goldCount') - 10) * 200;
+						goldNum = -1200 + (data.get('goldCount') - 10) * 200;
 						data.increment('goldCount', -1);
 					}
 					else
