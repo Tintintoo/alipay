@@ -1486,7 +1486,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
-					var level = data.increment('buildingLevel');
+					var level = data.get('buildingLevel');
 					var nTime  = 3600 * 4;
 					for (var i = 0; i< level; i++)
 					{
@@ -1533,7 +1533,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
-					var level = data.increment('buildingLevel');
+					var level = data.get('buildingLevel');
 					var nTime  = 3600 * 4;
 					for (var i = 0; i< level; i++)
 					{
