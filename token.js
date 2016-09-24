@@ -1486,7 +1486,15 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				if(data.get('exp') + 10 >= common.getBuildingExp(data.get('buildingLevel')))
 				{
 					up = 1;
+					var level = data.increment('buildingLevel');
+					var nTime  = 3600 * 4;
+					for (var i = 0; i< level; i++)
+					{
+						nTime *= 2;
+					}
+					nTime += parseInt(new Date().getTime()/ 1000);
 					data.increment('buildingLevel', 1);
+					data.set('buildingEnd', nTime);
 				}
 				saveObj.push(data);
 			}
@@ -1525,7 +1533,15 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')+1))
 				{
 					up = 1;
+					var level = data.increment('buildingLevel');
+					var nTime  = 3600 * 4;
+					for (var i = 0; i< level; i++)
+					{
+						nTime *= 2;
+					}
+					nTime += parseInt(new Date().getTime()/ 1000);
 					data.increment('buildingLevel', 1);
+					data.set('buildingEnd', nTime);
 				}
 				saveObj.push(data);
 			}
