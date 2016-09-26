@@ -1265,7 +1265,7 @@ AV.Cloud.define('clearPetRankFight',function(request, response)
 	redisClient.delAsync(key2);
 	response.success('请求成功!');
 });
-var gold = [0,20,50,100,200,400,700,900,1200,1500,2000];
+var gold = [0,20,50,150,250,400,700,900,1200,1500,2000];
 var charm = [0,5,15,40,80,180,300,450,600,700,800];
 var plantName = ['','萝卜','胡萝卜','橙子','南瓜','小麦','雏菊','葡萄','西瓜','玉米','康乃馨'];
 AV.Cloud.define('harvestPlant',function(request, response)
