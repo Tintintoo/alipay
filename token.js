@@ -385,7 +385,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			{
 				rate = JSON.parse(fromID);
 				
-				if(!common.checkDaySame(date, rate.date))
+				if(!rate.date || !common.checkDaySame(date, rate.date))
 				{
 					rate.count = 10;
 					rate.date = new Date();
@@ -410,7 +410,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			if(cache)
 			{
 				userRate = JSON.parse(cache);
-				if(!common.checkDaySame(date, userRate.date))
+				if(!userRate.date ||!common.checkDaySame(date, userRate.date))
 				{
 					userRate.count = 10;
 					userRate.date = new Date();
@@ -423,7 +423,8 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 				userRate.date = new Date();
 				userRate.user = [];
 			}
-			for (var i = userRate.user.length - 1; i >= 0; i--) {
+			for (var i = userRate.user.length - 1; i >= 0; i--) 
+			{
 				if(userRate.user[i] == fromID)
 				{
 					return AV.Promise.error('你今天已经评价过他(她)了!');
