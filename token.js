@@ -1129,7 +1129,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 		}
 		data.increment('Diamond', diamond);
 		data.increment('useGold', -100 * diamond);
-		if (data.get('dailyUseGoldAt') && common.checkDaySame(new Data(), data.get('dailyUseGoldAt')))
+		if (data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
 		{
 			data.increment('dailyUseGold', -100 * diamond);
 		}
