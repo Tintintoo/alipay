@@ -136,29 +136,9 @@ exports.getBadReview = function(value)
     {
         return {goldNum:-100};
     }
-    else if(value < 100)
-    {
-        return {goldNum:-200};
-    }
-    else if(value < 200)
-    {
-        return {goldNum:-400};
-    }
-    else if(value < 500)
-    {
-        return {goldNum:-500}
-    }
-    else if(value < 1000)
-    {
-        return {goldNum:-1000};
-    }
-    else if(value < 10000)
-    {
-        return {goldNum:-2000};
-    }
     else
     {
-        return {goldNum: -5000};
+        return {goldNum:-200};
     }
 }
 exports.getMapSilver = function(mapID)
