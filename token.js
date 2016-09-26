@@ -4,6 +4,9 @@ var common = require('./common');
 var chatUsers = AV.Object.extend('chatUsers');
 var userLog = AV.Object.extend('userLog');
 var building = AV.Object.extend('building');
+var marryUsers = AV.Object.extend('marryUsers');
+var weddingCashLog = AV.Object.extend('weddingCashLog');
+var weddingLog = AV.Object.extend('weddingLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
@@ -1758,5 +1761,369 @@ AV.Cloud.define('expandField', function(request, response)
 		});
 	});
 });
+
+AV.Cloud.define('agreeMarriage', function(request, response)
+{
+	var userID = request.params.userID;
+	var otherID = request.params.otherID;
+	var saveObj = [];
+	var price = {};
+	var husBandIcon = -1;
+	var wifeIcon = -1;
+	var husBand = -1;
+	var wife = -1;
+
+	redisClient.incr("agreeMarriage:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('agreeMarriage:' + userID, 1);
+
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return AV.Query.or(new AV.Query('chatUsers').equalTo('userID', userID), 
+				new AV.Query('chatUsers').equalTo('userID', otherID)).find();
+		}).then(function(results)
+		{
+			if(results.length != 2)
+			{
+				return AV.Promise.error('用户有误!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) 
+			{
+				var data = results[i];
+				if(data.get('loverID') && data.get('loverID') > 0)
+				{
+					return AV.Promise.error('自己或对方已经结婚了,无法结婚!');
+				}
+				if(data.get('userID') == userID)
+				{
+					data.set('loverID', otherID);
+				}
+				else
+				{
+					data.set('loverID', userID);
+				}
+				if(data.get('sex') == 2)
+				{
+					if(wifeIcon == -1)
+					{
+						wife = data.get('userID');
+						wifeIcon = data.get('photoIndex');
+					}
+					else{
+						husBand = data.get('userID');
+						husBandIcon = data.get('photoIndex');
+					}
+				}
+				else
+				{
+					if(husBandIcon == -1)
+					{
+						husBand = data.get('userID');
+						husBandIcon = data.get('photoIndex');
+					}
+					else
+					{
+						wife = data.get('userID');
+						wifeIcon = data.get('photoIndex');
+					}
+				}
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			var obj = new marryUsers();
+			obj.set('wife',wife);
+			obj.set('wifeIcon', wifeIcon);
+			obj.set('husband', husBand);
+			obj.set('husBandIcon', husBandIcon);
+			obj.set('weddingTime', 0);
+			return obj.save();
+		}).then(function(success)
+		{
+			return response.success();
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('beginWedding', function(request, response)
+{
+	var userID = request.params.userID;
+	var type = request.params.type;
+	var lover = -1;
+	var now = new Date();
+	if(type != 1 || type != 0)
+	{
+		return response.error('参数错误!');
+	}
+	var gold = 100000;
+	if(type == 1)
+	{
+		gold = 990000;
+	}
+	redisClient.incr("beginWedding:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('beginWedding:' + userID, 1);
+
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('goldNum') < gold)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			lover = data.get('lover');
+
+			data.increment('goldNum', -1*gold);
+			data.increment('useGold', gold);
+			if (data.get('dailyUseGoldAt') && common.checkDaySame(new Data(), data.get('dailyUseGoldAt')))
+			{
+				data.increment('dailyUseGold', gold);
+			}
+			else
+			{
+				data.set('dailyUseGold', gold);
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			var query1 = new AV.Query('building');
+			query1.equalTo('userID', userID);
+			query1.equalTo('buildingType', 1);
+
+			var query2 = new AV.Query('building');
+			query2.equalTo('userID', lover);
+			query2.equalTo('buildingType', 1);
+			return AV.Query.or(query1, query2).find();
+		}).then(function(results)
+		{
+			if(results.length != 2)
+			{
+				return AV.Promise.error('查询失败!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				//两边都需要修改的数据
+				if(type == 0)
+				{
+					data.set('isWedding', 1);
+					data.set('decorateWeddingTime', parseInt(now.getTime()/1000) + 15 *24 *3600);
+					data.set('hallWeddingTime', parseInt(now.getTime()/1000) + 1800);
+					if(data.get('userID') == userID)
+					{
+						data.set('redPacket', 100);
+					}
+				}
+				else 
+				{
+					data.set('isWedding', 2);
+					data.set('decorateWeddingTime', parseInt(now.getTime()/1000) + 60 *24 *3600);
+					data.set('hallWeddingTime', parseInt(now.getTime()/1000) + 7200);
+					if(data.get('userID') == userID)
+					{
+						data.set('redPacket', 300);
+					}
+				}
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			return AV.Query.or(new AV.Query('marryUsers').equalTo('wife',userID), 
+				new AV.Query('marryUsers').equalTo('husband',userID)).find();
+		}).then(function(results)
+		{
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if ((data.get('wife') == userID && data.get('husband') == lover) || 
+					(data.get('husband') ==userID && data.get('wife') == lover))
+				{
+					data.set('weddingTime', parseInt(now.getTime()/1000) + 7200);
+					return data.save();
+				}
+			}
+			return AV.Promise.error('没有查询到对应结婚信息!');
+		}).then(function(success)
+		{
+			response.success({'gold':gold});
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('sendRedPacket', function(request, response)
+{
+	var userID = request.params.userID;
+	var gold = request.params.gold;
+	var otherID = request.params.otherID;
+	if (gold < 100)
+	{
+		return response.error('送的金币太少了,最少不得低于100!');
+	}
+	redisClient.incr("sendRedPacket:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('sendRedPacket:' + userID, 1);
+
+		var log = new weddingCashLog();
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			var query1 = new AV.Query('chatUsers').equalTo('userID', userID);
+			var query2 = new AV.Query('chatUsers').equalTo('userID', otherID);
+			var query3 = new AV.Query('chatUsers').equalTo('lover', otherID);
+			return AV.Query.or(query1, query2, query3).find();
+		}).then(function(results)
+		{
+			if(results.length != 3)
+			{
+				return AV.Promise.error('查询结果有错误!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if (data.get('userID') == userID)
+				{
+					if(data.get('goldNum') < gold)
+					{
+						return AV.Promise.error('金币不足!');
+					}
+					data.increment('goldNum', -1*gold);
+				}
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if(data.get('userID') != userID)
+				{
+					data.increment('goldNum', parseInt(gold / 2));
+				}
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			log.set('weddingID', otherID);
+			log.set('sender', userID);
+			log.set('cash', gold);
+			log.save();
+			response.success({'gold':gold});
+
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('getWeddingRedPacket', function(request, response)
+{
+	var userID = request.params.userID;
+	var otherID = request.params.otherID;
+	var gold = 0;
+	redisClient.incr("getRedPacket:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('getRedPacket:' + userID, 1);
+
+		var log = new weddingCashLog();
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('weddingLog').equalTo('userID',userID).equalTo('hostUser', otherID).first();
+		}).then(function(data)
+		{
+			if(data)
+			{	
+				return AV.Promise.error('你已经领取过他们的红包了!');
+			}
+			return new AV.Query('building').equalTo('userID', otherID).equalTo('buildingType', 1).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('redPacket') <= 0 || data.get('isWedding')<=0 || data.get('isWedding') > 2)
+			{
+				return AV.Promise.error('红包已经领完了!');
+			}
+			if(data.get('isWedding') == 1)
+			{
+				gold = Math.random() * 200;
+			}
+			else if(data.get('isWedding') == 1)
+			{
+				gold = Math.random()*1000;
+			}
+			data.increment('redPacket', -1);
+			return data.save();
+		}).then(function(success)
+		{
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(gold <= 0)
+			{
+				return AV.Promise.as('success');
+			}
+			data.increment('goldNum', gold);
+			return data.save();
+		}).then(function(success)
+		{
+			var log = new weddingLog();
+			log.set('hostUser', otherID);
+			log.set('userID', userID);
+			log.set('goldNum', gold);
+			log.save();
+			response.success({'gold':gold});
+		}).catch(function(error)
+		{
+			response.error(error);
+		})
+	})
+})
 
 module.exports = AV.Cloud;
