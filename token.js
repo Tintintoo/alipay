@@ -820,7 +820,9 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				{
 					return AV.Promise.error('还未到收获时间');
 				}
+				console.log(common.getGoldIncrease(data.get('petType'), data.get('level')));
 				var newTime = new Date(date.getTime() + parseInt(data.get('goldMax')*3600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
+				console.log(newTime);
 				data.set('goldHarvestAt', common.FormatDate(newTime));
 				silver = data.get('gold');
 			}
