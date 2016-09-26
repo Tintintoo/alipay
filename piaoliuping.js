@@ -1922,6 +1922,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 	var itemID = request.params.itemID;
 	var saveDatas = {};
 	var plus = 0.0;
+	var saveObjects = new Array();
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -1950,7 +1951,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		{
 			count = 20;
 		}
-		var saveObjects = new Array();
+		
 		
 		if(itemID > 11 && itemID < 15)//批量使用道具,累加所有增长
 		{
@@ -2042,8 +2043,8 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			data.increment('attackBook', -1*saveDatas[itemID]);
 			data.increment('attackPlus', parseInt(10 * plus));
 
-			saveObj.push(data);
-			return AV.Object.saveAll(saveObj);
+			saveObjects.push(data);
+			return AV.Object.saveAll(saveObjects);
 		}
 		else if (itemID == 13)
 		{
@@ -2054,8 +2055,8 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			data.increment('healthBook', -1*saveDatas[itemID]);
 			data.increment('healthPlus', parseInt(100 * plus));
-			saveObj.push(data);
-			return AV.Object.saveAll(saveObj);
+			saveObjects.push(data);
+			return AV.Object.saveAll(saveObjects);
 		}
 		else if (itemID == 14)
 		{
@@ -2066,8 +2067,8 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			data.increment('defenseBook', -1*saveDatas[itemID]);
 			data.increment('defensePlus', parseInt(5 * plus));
-			saveObj.push(data);
-			return AV.Object.saveAll(saveObj);
+			saveObjects.push(data);
+			return AV.Object.saveAll(saveObjects);
 		}
 		else if (itemID == 15)
 		{
@@ -2078,8 +2079,8 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			data.increment('speedBook', -1*saveDatas[itemID]);
 			data.increment('speedPlus', parseInt(10 * plus));
-			saveObj.push(data);
-			return AV.Object.saveAll(saveObj);
+			saveObjects.push(data);
+			return AV.Object.saveAll(saveObjects);
 		}
 		else//开启宝箱结束
 		{
