@@ -180,7 +180,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
  	//console.log('1分钟一次定时异常检测!');
  	checkPetGmabline();
  	checkPackageLog();
-	checkUserError();
+	//checkUserError();
  }, 60000);
 
 var giftSkip = 0;
@@ -250,8 +250,8 @@ var checkGiftInfo = setInterval(function()
 			log.set('userID', data.get('userID'));
 			log.set('goldNum', data.get('goldNum'));
 			log.set('Diamond', data.get('Diamond'));
-			data.set('goldNum',-100000);
-			data.set('Diamond',-100000);
+			data.set('goldNum', -100000);
+			data.set('Diamond', -100000);
 			data.save();
 			log.set('BonusPoint', data.get('BonusPoint'));
 			log.set('goldMax', data.get('goldMax'));
@@ -371,20 +371,8 @@ function checkPackageLog()
 					users.push(dataCheck.get('userID'));
 					banned.push(dataCheck.get('userID'));
 				}
-				//10分钟内,明明内存已经减少到少于10个,结果有加入了,列入怀疑对象,无法上架
-				//else if(Math.abs(data.createdAt.getTime() - dataCheck.createdAt.getTime()) < 60 * 1000 &&
-				//		dataCheck.get(fields[0]) == data.get(fields[0]) && 
-				//		dataCheck.get(fields[2]) == data.get(fields[2]) &&
-				//		dataCheck.get(fields[1]) == data.get(fields[1]) && 
-				//		dataCheck.get(fields[3] < 5) && data.get(fields[1] < -125))
-				//{
-				//	banned.push(dataCheck.get(fields[0]));
-				//}
 			}
 		}
-		//console.log(users);
-		//console.log(banned);
-		//return;
 
 		redisClient.getAsync('forbiddenUserID').then(function(cacheUser){
 			if(cacheUser)
@@ -1650,7 +1638,6 @@ AV.Cloud.define('sendGift', function(request, response)
 		}
 		return redisClient.getAsync('token:'+userID).then(function(cache)
 		{	
-			console.log(cache+","+request.params.token);
 			if(!cache || cache != request.params.token)
 			{
 				if(global.isReview == 0)
