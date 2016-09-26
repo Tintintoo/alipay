@@ -309,22 +309,22 @@ exports.getGoldIncrease= function(type , level)
 {
     if(type == 0)
     {
-        return 2 + level ;
+        return 2 + level;
     }
     else if(type == 1)
     {
-        return parseInt(4 + level*1.2);
+        return parseInt(4 + level * 1.5);
     }
     else if(type == 2)
     {
-        return parseInt(6 + level * 1.5);
+        return parseInt(6 + level * 2);
     }
     else if(type == 3)
     {
-        return parseInt(8 + level * 1.8);
+        return parseInt(8 + level * 2.5);
     }
     else
     {
-        return parseInt(10 + level * 2);
+        return parseInt(10 + level * 3);
     }
 }
