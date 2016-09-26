@@ -308,3 +308,7 @@ exports.getGoldIncrease= function(type , level)
         return parseInt(10 + level * 3);
     }
 }
+exports.stringToDate= function(value)
+{
+    return new Date(value.replace(/-/g,"/"));
+}

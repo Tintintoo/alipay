@@ -10,7 +10,6 @@ var weddingLog = AV.Object.extend('weddingLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
-	console.log("接到请求!");
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -38,11 +37,9 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		return redisClient.incr('tokenCount:'+userID);
 	}).then(function(err, id)
 	{
-		console.log("token访问次数" +err+ id);
 		return redisClient.getAsync('token:' + userID);
 	}).then(function(cache)
 	{
-		console.log("获取cache");
 		if(cache)
 		{
 			response.success({'token':cache, 'userID':userID});
@@ -359,7 +356,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 	}
 	var date = new Date();
 	var resData ={};
-	var userRate = {};
+	var rate = {};
 	redisClient.incr("Praise:"+fromID, function(err, id)
 	{
 		if(id > 1)
@@ -380,57 +377,37 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			return redisClient.getAsync('Rated:'+ fromID);
 		}).then(function(cache)
 		{
-			var rate = {};
 			if(cache)
 			{
-				rate = JSON.parse(fromID);
-				
-				if(!rate.date || !common.checkDaySame(date, rate.date))
+				rate = JSON.parse(cache);
+				var last = common.stringToDate(rate.date);
+				if(!rate.date || !common.checkDaySame(date, last))
 				{
 					rate.count = 10;
-					rate.date = new Date();
+					rate.date = common.FormatDate(date);
 					rate.user = [];
 				}
 			}
 			else
 			{
 				rate.count = 10;
-				rate.date = new Date();
+				rate.date = common.FormatDate(date);
 				rate.user = [];
 			}
 			if(rate.count <= 0)
 			{
 				return AV.Promise.error('可评价次数不足');
 			}
+			for (var i = rate.user.length - 1; i >= 0; i--) 
+			{
+				if (rate.user[i] == userID)
+				{
+					return AV.Promise.error('你今天已经评价过他（她）了！');
+				}
+			}
+			rate.user.push(userID);
 			rate.count -= 1;
-			redisClient.setAsync('Rated:'+ fromID, JSON.stringify(rate));
-			return redisClient.getAsync('Rated'+ userID);
-		}).then(function(cache)
-		{
-			if(cache)
-			{
-				userRate = JSON.parse(cache);
-				if(!userRate.date ||!common.checkDaySame(date, userRate.date))
-				{
-					userRate.count = 10;
-					userRate.date = new Date();
-					userRate.user = [];
-				}
-			}
-			else
-			{
-				userRate.count = 10;
-				userRate.date = new Date();
-				userRate.user = [];
-			}
-			for (var i = userRate.user.length - 1; i >= 0; i--) 
-			{
-				if(userRate.user[i] == fromID)
-				{
-					return AV.Promise.error('你今天已经评价过他(她)了!');
-				}
-			}
-			userRate.user.push(fromID);
+			redisClient.setAsync('Rated:'+fromID, JSON.stringify(rate));
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
@@ -476,8 +453,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			data.increment('goldNum', parseInt(resData.goldNum * mutiple *0.5));
 			return data.save();
 		}).then(function(success)
-		{
-			redisClient.setAsync('Rated:'+userID, JSON.stringify(userRate));
+		{			
 			response.success(resData);
 		}).catch(function(error)
 		{
@@ -856,9 +832,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				{
 					return AV.Promise.error('还未到收获时间');
 				}
-				console.log(common.getGoldIncrease(data.get('petType'), data.get('level')));
 				var newTime = new Date(date.getTime() + parseInt(data.get('goldMax') * 600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
-				console.log(newTime);
 				data.set('goldHarvestAt', common.FormatDate(newTime));
 				silver = data.get('gold');
 			}
