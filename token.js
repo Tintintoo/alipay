@@ -643,6 +643,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 			redisClient.expire(key, 1);
 		}
 
+		var shareInfo;
 	return redisClient.getAsync('token:' + userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -667,6 +668,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 		if(tag == 1)
 		{
 			gold = -1 * data.get('goldSendRest');
+			shareInfo = data;
 		}
 		else if(tag == 2)
 		{
@@ -728,6 +730,10 @@ AV.Cloud.define('increaseGold', function(request, response)
 		{
 			gold = vip[common.getVipType(data.get('BonusPoint'))];
 		}
+		if(gold < 0 && data.get('goldNum') < gold)
+		{
+			return AV.Promise.error('金币不足!');
+		}
 		data.increment('goldNum', gold);
 		if(goldMax > 0)
 		{
@@ -739,6 +745,10 @@ AV.Cloud.define('increaseGold', function(request, response)
 		response.success({'gold':gold});
 	}).catch(function(error)
 	{
+		if(shareInfo)
+		{
+			shareInfo.destroy();
+		}
 		response.error(error);
 	});
 
