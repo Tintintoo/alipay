@@ -469,7 +469,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			{
 				return AV.Promise.error('over');
 			}
-			return AV.Query('chatUsers').equalTo('userID', fromID).first();
+			return new AV.Query('chatUsers').equalTo('userID', fromID).first();
 		}).then(function(data)
 		{
 			data.increment('goldNum', parseInt(resData.goldNum * mutiple *0.5));
