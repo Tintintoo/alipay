@@ -741,6 +741,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 		}
 		if(gold < 0)
 		{
+			data.increment('useGold', -1*gold);
 			if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
 			{
 				data.increment('dailyUseGold', -1*gold);
@@ -806,6 +807,18 @@ AV.Cloud.define('IncreaseSilver', function(request, response)
 		}).then(function(data)
 		{
 			data.increment('silverCoin', silver);
+			if(silver < -1000)//使用银币
+			{
+				data.increment('useGold', parseInt(-0.1*silver));
+				if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
+				{
+					data.increment('dailyUseGold', parseInt(-0.1*silver));
+				}
+				else{
+					data.set('dailyUseGold', parseInt(-0.1*silver));
+				}
+				data.set('dailyUseGoldAt', new Date());
+			}
 			return data.save();
 		}).then(function(success)
 		{
