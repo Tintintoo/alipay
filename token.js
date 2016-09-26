@@ -1821,17 +1821,17 @@ AV.Cloud.define('agreeMarriage', function(request, response)
 			for (var i = results.length - 1; i >= 0; i--) 
 			{
 				var data = results[i];
-				if(data.get('loverID') && data.get('loverID') > 0)
+				if(data.get('lover') && data.get('lover') > 0)
 				{
 					return AV.Promise.error('自己或对方已经结婚了,无法结婚!');
 				}
 				if(data.get('userID') == userID)
 				{
-					data.set('loverID', otherID);
+					data.set('lover', otherID);
 				}
 				else
 				{
-					data.set('loverID', userID);
+					data.set('lover', userID);
 				}
 				if(data.get('sex') == 2)
 				{
