@@ -1989,7 +1989,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 					return data.save();
 				}
 			}
-			return AV.Promise.error('没有查询到对应结婚信息!');
+			return AV.Promise.error('没有查询到对应结婚信息,请联系客服处理!');
 		}).then(function(success)
 		{
 			response.success({'gold':gold});

@@ -26,7 +26,7 @@ global.moneyLog = AV.Object.extend('moneyLog');
 var acutionLog = AV.Object.extend('acutionLog');
 var package = AV.Object.extend('package');
 var landLog = AV.Object.extend('landLog');
-var failLog = AV.Object.extend('failLog');
+var global.failLog = AV.Object.extend('failLog');
 global.giftInfo = {};
 var seedrandom = require('seedrandom');
 
@@ -467,25 +467,6 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	//return response.error('访问频繁!');
 	var req = reqCount();
 	var key = "JoingameRoom:" + request.params.roomID;
-	//并发控制
-	//redisClient.getAsync("gameLimit:"+request.params.userID).then(function(cacheLimit)
-	//{
-	///	var limit = {};
-	//	var now = new Date();
-	//	if(cacheLimit)
-	//	{
-	//		limit = JSON.parse(cacheLimit);
-	//		var date = limit.date.split('-');
-	//		if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
-	//		{
-	//			limit.count = 5;
-	//		}
-	//	}
-	//	else
-	//	{
-	//		limit.count = 5;
-	//	}
-	//	limit.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate()
 	redisClient.incr(key,function( err, id ) 
 	{
 		//console.log('第'+(step++)+"步");
@@ -514,6 +495,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 	var newDay = 0;
 	var roomCache = {count:0};
 	var state = '';
+	var random = seedrandom('added entropy.', { entropy: true });
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -573,11 +555,8 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 			goldNum = data.get('gambling');
 		}
 		room = data;
-		//return data.destroy();
-	//}).then(function(success)
-	//{
-		var nValue = parseInt(Math.random() * 10);
-		console.log(nValue);
+
+		var nValue = parseInt(random() * 10);
 		if (request.params.newversion == 1 )
 		{
 			//新版本直接根据结果
@@ -756,7 +735,7 @@ AV.Cloud.define('upItem', function(request, response)
 	//全局变量
 	var newDay = false;
 	var upCache = {};
-	var fail = new failLog();
+	var fail = new global.failLog();
 	fail.set('IPAddress', request.meta.remoteAddress);
 	fail.set('action', '物品上架');
 	//检查是否已经被封禁
@@ -899,7 +878,7 @@ AV.Cloud.define('buyItem', function(request, response)
 			return response.error('购买失败!');
 		}
 		var log = new moneyLog();
-		var fail = new failLog();
+		var fail = new global.failLog();
 		fail.set('action', '购买物品');
 		fail.set('auctionID', reqData.auctionID);
 		fail.set('userID', reqData.buyer);
@@ -1929,6 +1908,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 {
 	var req = reqCount();
 	var reqKey = "useChest:" + request.params.userID;
+	var petID = request.params.petID;
 	//并发控制
 	redisClient.incr(reqKey,function( err, id ) 
 	{
@@ -1941,6 +1921,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 
 	var itemID = request.params.itemID;
 	var saveDatas = {};
+	var plus = 0.0;
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -1971,71 +1952,146 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		}
 		var saveObjects = new Array();
 		
-		for(var i = 0; i < count; i++)
+		if(itemID > 11 && itemID < 15)//批量使用道具,累加所有增长
 		{
-			var number = random();
-			var rand = Math.floor(number * 100);
-			var array = chestValue[itemID];
-			var size = 0;
-			for (var j = array.length - 1; j >= 0; j--) 
+			for (var i = count - 1; i >= 0; i--) 
 			{
-				if(rand >= size && rand < size+ parseInt(array[j].random))
+				plus += random();
+			}
+		}
+		else//批量开宝箱
+		{
+			for(var i = 0; i < count; i++)
+			{
+				var number = random();
+				var rand = Math.floor(number * 100);
+				var array = chestValue[itemID];
+				var size = 0;
+				for (var j = array.length - 1; j >= 0; j--) 
 				{
-					if( saveDatas[array[j].item] )
+					if(rand >= size && rand < size+ parseInt(array[j].random))
 					{
-						saveDatas[array[j].item] += 1;
+						if( saveDatas[array[j].item] )
+						{
+							saveDatas[array[j].item] += 1;
+						}
+						else
+						{
+							saveDatas[array[j].item] = 1;
+						}
+						break;
 					}
 					else
 					{
-						saveDatas[array[j].item] = 1;
+						size += parseInt(array[j].random);
 					}
-					break;
-				}
-				else
-				{
-					size += parseInt(array[j].random);
 				}
 			}
-		}
-		for(var key in saveDatas)
-		{
-			var bhas = false;
-			for (var i = results.length - 1; i >= 0; i--) {
-				if(results[i].get('itemID') == parseInt(key))
-				{
-					bhas = true;
-					results[i].increment('itemCount', saveDatas[key]);
-					saveObjects.push(results[i]);
-					//results[i].save();
-					break;
-				}
-			}
-			if(bhas == false)
+			for(var key in saveDatas)
 			{
-				var obj = new package();
-				obj.set('userID', request.params.userID);
-				obj.set('itemID', parseInt(key));
-				obj.set('itemCount', saveDatas[key]);
-				saveObjects.push(obj);
+				var bhas = false;
+				for (var i = results.length - 1; i >= 0; i--) {
+					if(results[i].get('itemID') == parseInt(key))
+					{
+						bhas = true;
+						results[i].increment('itemCount', saveDatas[key]);
+						saveObjects.push(results[i]);
+						//results[i].save();
+						break;
+					}
+				}
+				if(bhas == false)
+				{
+					var obj = new package();
+					obj.set('userID', request.params.userID);
+					obj.set('itemID', parseInt(key));
+					obj.set('itemCount', saveDatas[key]);
+					saveObjects.push(obj);
 				//obj.save();
+				}
 			}
 		}
-		saveDatas[request.params.itemID] = -1*count;
+		saveDatas[itemID] = -1*count;
 		if(data.get('itemCount') == count)
 		{
 			data.destroy();
 		}
 		else
+		{
 			data.increment('itemCount', -1* count);
+		}
 		saveObjects.push(data);
-		return AV.Object.saveAll(saveObjects);
+		if(itemID > 11 && itemID < 16)
+		{
+			return new AV.Query('petInfo').equalTo('petID', petID).first();
+		}
+		else
+		{
+			return AV.Object.saveAll(saveObjects);
+		}
+	}).then(function(data)
+	{
+		saveDatas.plus = parseInt(10 * plus);
+		var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+		if (itemID == 12)
+		{
+			if(data.get('attackBook') > bookCount)
+			{
+				return AV.Promise.error('使用失败,可使用次数不足!!');
+			}
+			data.increment('attackBook', -1*saveDatas[itemID]);
+			data.increment('attackPlus', parseInt(10 * plus));
+
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}
+		else if (itemID == 13)
+		{
+			if(data.get('healthBook') > bookCount)
+			{
+				return AV.Promise.error('使用失败,可使用次数不足!!');
+			}
+			data.increment('healthBook', -1*saveDatas[itemID]);
+			data.increment('healthPlus', parseInt(100 * plus));
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}
+		else if (itemID == 14)
+		{
+			if(data.get('defenseBook') > bookCount)
+			{
+				return AV.Promise.error('使用失败,可使用次数不足!!');
+			}
+			data.increment('defenseBook', -1*saveDatas[itemID]);
+			data.increment('defensePlus', parseInt(5 * plus));
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}
+		else if (itemID == 15)
+		{
+			if(data.get('speedBook') > bookCount)
+			{
+				return AV.Promise.error('使用失败,可使用次数不足!!');
+			}
+			data.increment('speedBook', -1*saveDatas[itemID]);
+			data.increment('speedPlus', parseInt(10 * plus));
+			saveObj.push(data);
+			return AV.Object.saveAll(saveObj);
+		}
+		else//开启宝箱结束
+		{
+			return AV.Promise.error('over');
+		}
 	}).then(function(success)
 	{
-		response.success(saveDatas);
-
+		return response.success(saveDatas);
 	}).catch(function(error)
 	{
-		return response.error('道具不足!');
+		if(error == 'over')
+		{
+			return response.success(saveDatas);
+		}
+		return response.error(error);
 	});
 });
 });
