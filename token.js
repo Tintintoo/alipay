@@ -348,7 +348,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 	}
 	else
 	{
-		if(!mutiple)
+		if(!mutiple || mutiple <= 0)
 		{
 			mutiple = 1;
 		}
