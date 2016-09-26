@@ -457,7 +457,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 			}
 			else
 			{
-				var gold = common.getBadReview(data.get('badNum'));
+				var gold = {goldNum:-50};//common.getBadReview(data.get('badNum'));
 				resData = gold;
 				resData.mutiple = mutiple;
 				data.increment('badNum', 1);
