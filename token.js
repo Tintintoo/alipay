@@ -1393,7 +1393,7 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 				}
 				else
 				{
-					data.increment('Diamond', -1*diamond);
+					data.increment('Diamond', -1*price.diamond);
 				}
 			}
 			return data.save();
