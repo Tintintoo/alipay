@@ -739,6 +739,17 @@ AV.Cloud.define('increaseGold', function(request, response)
 		{
 			data.increment('goldMax', goldMax);
 		}
+		if(gold < 0)
+		{
+			if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
+			{
+				data.increment('dailyUseGold', -1*gold);
+			}
+			else{
+				data.set('dailyUseGold', -1*gold);
+			}
+			data.set('dailyUseGoldAt', new Date();)
+		}
 		return data.save();
 	}).then(function(success)
 	{
@@ -1147,6 +1158,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 		{
 			data.set('dailyUseGold', -100 * diamond);
 		}
+		data.set('dailyUseGoldAt', new Date());
 		return data.save();
 	}).then(function(success)
 	{
@@ -1922,7 +1934,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 
 			data.increment('goldNum', -1*gold);
 			data.increment('useGold', gold);
-			if (data.get('dailyUseGoldAt') && common.checkDaySame(new Data(), data.get('dailyUseGoldAt')))
+			if (data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
 			{
 				data.increment('dailyUseGold', gold);
 			}
@@ -1930,6 +1942,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 			{
 				data.set('dailyUseGold', gold);
 			}
+			data.set('dailyUseGoldAt', new Date())
 			return data.save();
 		}).then(function(success)
 		{
