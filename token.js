@@ -1123,6 +1123,10 @@ AV.Cloud.define('useDiamond', function(request, response)
 		return new AV.Query('chatUsers').equalTo('userID', userID).first();
 	}).then(function(data)
 	{
+		if(diamond < 0 && data.get('Diamond') < -1*diamond)
+		{
+			return AV.Promise.error('钻石不足,无法购买!');
+		}
 		data.increment('Diamond', diamond);
 		data.increment('useGold', -100 * diamond);
 		if (data.get('dailyUseGoldAt') && common.checkDaySame(new Data(), data.get('dailyUseGoldAt')))
@@ -1139,7 +1143,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 		response.success({Diamond:diamond});
 	}).catch(function(error)
 	{
-		response.error('失败!');
+		response.error(error);
 	})
 });
 
