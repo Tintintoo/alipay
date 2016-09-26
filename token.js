@@ -748,7 +748,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 			else{
 				data.set('dailyUseGold', -1*gold);
 			}
-			data.set('dailyUseGoldAt', new Date();)
+			data.set('dailyUseGoldAt', new Date());
 		}
 		return data.save();
 	}).then(function(success)
@@ -1942,7 +1942,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 			{
 				data.set('dailyUseGold', gold);
 			}
-			data.set('dailyUseGoldAt', new Date())
+			data.set('dailyUseGoldAt', new Date());
 			return data.save();
 		}).then(function(success)
 		{
