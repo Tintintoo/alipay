@@ -26,7 +26,7 @@ global.moneyLog = AV.Object.extend('moneyLog');
 var acutionLog = AV.Object.extend('acutionLog');
 var package = AV.Object.extend('package');
 var landLog = AV.Object.extend('landLog');
-var global.failLog = AV.Object.extend('failLog');
+global.failLog = AV.Object.extend('failLog');
 global.giftInfo = {};
 var seedrandom = require('seedrandom');
 
