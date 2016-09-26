@@ -1523,7 +1523,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				{
 					data.set('lastDiamondAt', common.FormatDate(new Date()));
 					diamond = -50;
-					data.set('goldCount', 2);
+					data.set('DiamondCount', 2);
 				}
 				if(data.get('exp') + exp >= common.getBuildingExp(data.get('buildingLevel')))
 				{
