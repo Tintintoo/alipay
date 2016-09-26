@@ -820,7 +820,8 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				{
 					return AV.Promise.error('还未到收获时间');
 				}
-				data.set('goldHarvestAt', common.FormatDate(date));
+				var newTime = new Date(date.getTime() + parseInt(data.get('goldMax')*3600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
+				data.set('goldHarvestAt', common.FormatDate(newTime));
 				silver = data.get('gold');
 			}
 			else
@@ -837,6 +838,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 					silver = parseInt(gold - goldMax*0.4);
 				}
 			}
+
 			data.increment('gold', -1 * silver);
 			return data.save();
 		}).then(function(success)

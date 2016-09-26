@@ -305,3 +305,26 @@ exports.getExpandPrice=function(value)
     7:{gold:40000}, 22:{gold:80000}, 45:{gold:200000}};
     return floor[value];
 }
+exports.getGoldIncrease= function(type , level)
+{
+    if(type == 0)
+    {
+        return 2 + level ;
+    }
+    else if(type == 1)
+    {
+        return parseInt(4 + level*1.2);
+    }
+    else if(type == 2)
+    {
+        return parseInt(6 + level * 1.5);
+    }
+    else if(type == 3)
+    {
+        return parseInt(8 + level * 1.8);
+    }
+    else
+    {
+        return parseInt(10 + level * 2);
+    }
+}
