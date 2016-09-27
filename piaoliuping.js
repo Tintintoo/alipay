@@ -172,14 +172,13 @@ AV.Cloud.define('createGameRoom', function(request, response)
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
- 		checkUserError();
+ 		//checkUserError();
+ 		clearInterval(timer);
  		return;
- 		//clearInterval(timer);
  	}
  	checkPetGmabline();
  	checkPackageLog();
-	
- }, 600000);
+ }, 60000);
 
 var giftSkip = 0;
 var checkGiftInfo = setInterval(function()
