@@ -1987,7 +1987,14 @@ AV.Cloud.define('beginWedding', function(request, response)
 				if ((data.get('wife') == userID && data.get('husband') == lover) || 
 					(data.get('husband') ==userID && data.get('wife') == lover))
 				{
-					data.set('weddingTime', parseInt(now.getTime()/1000) + 7200);
+					if(type == 1)
+					{
+						data.set('weddingTime', parseInt(now.getTime()/1000) + 7200);
+					}
+					else
+					{
+						data.set('weddingTime', parseInt(now.getTime()/1000) + 1800);
+					}
 					return data.save();
 				}
 			}
