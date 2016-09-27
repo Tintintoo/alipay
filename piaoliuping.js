@@ -1802,9 +1802,17 @@ AV.Cloud.define('endMarriage', function(request, response)
   		return AV.Query.or(query1, query2).find()
   	}).then(function(results)
 	{
+		if(results.length != 2)
+		{
+			return AV.Promise.error('离婚失败,请联系客服处理!');
+		}
 		for (var i = results.length - 1; i >= 0; i--)
 		 {
 		 	var data = results[i];
+		 	if (data.get('lover') <= 0)
+		 	{
+		 		return AV.Promise.error('离婚失败,请联系客服处理!');
+		 	}
 		 	if(data.get('userID') != userID)
 		 	{
 		 		other = data.get('userID');
@@ -1867,7 +1875,7 @@ AV.Cloud.define('endMarriage', function(request, response)
 		return response.success('离婚离婚成功!');
 	}).catch(function(error)
 	{
-		return response.error('离婚失败!');
+		return response.error(error);
 	});
 });
 var chestValue = {};
