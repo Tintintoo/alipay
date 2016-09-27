@@ -231,6 +231,9 @@ var checkGiftInfo = setInterval(function()
 			var data = results[i];
 			console.log('shareID:'+data.get('shareID')+'   ,ImageID:'+data.get('imageID'));
 		}
+	}).catch(function(error)
+	{
+		console.log(error);
 	});
  };
 function checkPetGmabline()
