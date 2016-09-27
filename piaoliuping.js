@@ -1951,8 +1951,8 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		{
 			count = 20;
 		}
-		
-		if(itemID > 11 && itemID < 15)//批量使用道具,累加所有增长
+
+		if(itemID > 11 && itemID < 16)//批量使用道具,累加所有增长
 		{
 			for (var i = count - 1; i >= 0; i--) 
 			{
