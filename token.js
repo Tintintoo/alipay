@@ -2152,6 +2152,11 @@ AV.Cloud.define('getWeddingRedPacket', function(request, response)
 			response.error(error);
 		})
 	})
+});
+
+AV.Cloud.define('checkNet', function(request, response)
+{
+	return response.success('success');
 })
 
 module.exports = AV.Cloud;
