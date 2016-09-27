@@ -179,7 +179,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
  	checkPetGmabline();
  	checkPackageLog();
 	
- }, 60000);
+ }, 600000);
 
 var giftSkip = 0;
 var checkGiftInfo = setInterval(function()
@@ -218,14 +218,12 @@ var checkGiftInfo = setInterval(function()
 	});
 }, 10000);
 
-var skip = 0;
 function checkUserError()
 {
 	console.log('定时删除shareImg错误！');
 	var query = new AV.Query('shareImg');
 	query.limit(1000);
 	query.skip(skip);
-	skip += 1000;
 	query.descending('createdAt');
 	query.find().then(function(results)
 	{
