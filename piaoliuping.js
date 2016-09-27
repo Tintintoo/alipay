@@ -218,18 +218,24 @@ var checkGiftInfo = setInterval(function()
 	});
 }, 10000);
 
- function checkUserError()
- {
+var skip = 0;
+function checkUserError()
+{
 	console.log('定时删除shareImg错误！');
 	var query = new AV.Query('shareImg');
-	query.doesNotExist('image');
 	query.limit(1000);
+	query.skip(skip);
+	skip += 1000;
 	query.descending('createdAt');
 	query.find().then(function(results)
 	{
 		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
-			console.log('shareID:'+data.get('shareID')+'   ,ImageID:'+data.get('imageID'));
+			var file = data.get('image');
+			if(!file)
+			{
+				console.log('shareID:'+data.get('shareID')+'   ,ImageID:'+data.get('imageID'));
+			}
 		}
 	}).catch(function(error)
 	{
