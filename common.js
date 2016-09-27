@@ -149,11 +149,11 @@ exports.getMapSilver = function(mapID)
     }
     if(mapID <= 30)
     {
-        return mapID*50;
+        return mapID * 50;
     }
     else if(mapID < 40)
     {
-        return mapID*50 + (mapID-30) * 25;
+        return mapID * 50 + (mapID-30) * 25;
     }
     else if(mapID > 1000 && mapID <1009)
     {

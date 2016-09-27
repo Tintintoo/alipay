@@ -172,11 +172,13 @@ AV.Cloud.define('createGameRoom', function(request, response)
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
- 		clearInterval(timer);
+ 		checkUserError();
+ 		return;
+ 		//clearInterval(timer);
  	}
  	checkPetGmabline();
  	checkPackageLog();
-	//checkUserError();
+	
  }, 60000);
 
 var giftSkip = 0;
@@ -218,42 +220,16 @@ var checkGiftInfo = setInterval(function()
 
  function checkUserError()
  {
-	 console.log('定时检测用户异常！');
-	 
-	var query1 = new AV.Query('chatUsers');
-	query1.lessThan('BonusPoint', 10);
-	query1.greaterThan('goldMax', 5000);
-	query1.greaterThan('userID', 419261);
-
-  	var query2 = new AV.Query('chatUsers');
-	query2.lessThan('BonusPoint', 10);
-	query2.greaterThan('goldNum', 100000);
-	query2.greaterThan('Diamond', 1000);
-	query2.greaterThan('userID', 419261);
-	
-	var query = AV.Query.or(query1, query2);
+	console.log('定时删除shareImg错误！');
+	var query = new AV.Query('shareImg');
+	query.doesNotExist('image');
+	query.limit(1000);
+	query.descending('createdAt');
 	query.find().then(function(results)
 	{
-		for(var i = 0; i < results.length; i++)
-		{
+		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
-			if(data.get('forbiddenState') != 0)//已经是封号状态,不做处理
-			{
-				continue;
-			}
-			var log = new gameErrorForbidden();
-			data.set('forbiddenState', -1);
-			log.set('userID', data.get('userID'));
-			log.set('goldNum', data.get('goldNum'));
-			log.set('Diamond', data.get('Diamond'));
-			data.set('goldNum', -100000);
-			data.set('Diamond', -100000);
-			data.save();
-			log.set('BonusPoint', data.get('BonusPoint'));
-			log.set('goldMax', data.get('goldMax'));
-			log.set('des', '实际金币和钻石异常！');
-			console.log('封号：'+data.get('userID'));
-			log.save();
+			console.log('shareID:'+data.get('shareID')+'   ,ImageID:'+data.get('imageID'));
 		}
 	});
  };
@@ -1902,6 +1878,7 @@ var timer3 = setInterval(function getChest()
 		}
 	});
 }, 1000);
+
 
 AV.Cloud.define('useChestBatch', function(request, response)
 {

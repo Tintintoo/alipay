@@ -2150,7 +2150,7 @@ AV.Cloud.define('getWeddingRedPacket', function(request, response)
 		}).catch(function(error)
 		{
 			response.error(error);
-		})
+		});
 	})
 });
 
