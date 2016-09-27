@@ -229,14 +229,19 @@ function checkUserError()
 	query.descending('createdAt');
 	query.find().then(function(results)
 	{
+		var delArray = new Array;
 		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
 			var file = data.get('image');
 			if(!file)
 			{
-				console.log('shareID:'+data.get('shareID')+'   ,ImageID:'+data.get('imageID'));
+				delArray.push(data);
 			}
 		}
+		return AV.Object.destroyAll(delArray);
+	}).then(function(success)
+	{
+		console.log('清除图片不在的数据!');
 	}).catch(function(error)
 	{
 		console.log(error);
