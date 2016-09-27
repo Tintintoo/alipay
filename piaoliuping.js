@@ -2021,7 +2021,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			saveDatas.plus = parseInt(10 * plus);
 			if (itemID == 12)
 			{
-				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				var bookCount = Math.floor(data.get('level')/10 + 1) *100 + saveDatas[itemID];
 				if(data.get('attackBook') > bookCount)
 				{
 					return AV.Promise.error('使用失败,可使用次数不足!!');
@@ -2034,7 +2034,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			else if (itemID == 13)
 			{
-				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				var bookCount = Math.floor(data.get('level')/10 + 1) * 50 + saveDatas[itemID];
 				if(data.get('healthBook') > bookCount)
 				{
 					return AV.Promise.error('使用失败,可使用次数不足!!');
@@ -2046,7 +2046,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			else if (itemID == 14)
 			{
-				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				var bookCount = Math.floor(data.get('level')/10 + 1) * 50 + saveDatas[itemID];
 				if(data.get('defenseBook') > bookCount)
 				{
 					return AV.Promise.error('使用失败,可使用次数不足!!');
@@ -2058,7 +2058,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			}
 			else if (itemID == 15)
 			{
-				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				var bookCount = Math.floor(data.get('level')/10 + 1) * 30 + saveDatas[itemID];
 				if(data.get('speedBook') > bookCount)
 				{
 					return AV.Promise.error('使用失败,可使用次数不足!!');
