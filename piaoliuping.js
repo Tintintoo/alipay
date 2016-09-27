@@ -131,7 +131,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		if(newDay == true)
 			{
 				roomCache.count += 10 * common.getVipType(data.get('BonusPoint'));
-				//console.log(roomCache.count);
 			}
     		roomCache.count -= 1;
     		if(data.get('Diamond') < gambling)
@@ -140,7 +139,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
     		}
     		data.increment('Diamond', 0-gambling);
     	}
-    	//data.fetchWhenSave(true);
     	return data.save()
     }).then(function(data)
     {
@@ -175,9 +173,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
  		clearInterval(timer);
- 		//return ;
  	}
- 	//console.log('1分钟一次定时异常检测!');
  	checkPetGmabline();
  	checkPackageLog();
 	//checkUserError();
@@ -464,51 +460,47 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		return response.error('查询失败！');
 	}
 	//并发控制,根据room来控制,一个room只能发起一次请求
-	//return response.error('访问频繁!');
 	var req = reqCount();
 	var key = "JoingameRoom:" + request.params.roomID;
 	redisClient.incr(key,function( err, id ) 
 	{
-		//console.log('第'+(step++)+"步");
 		if(err)
 		{
-			//console.log('第'+(step++)+"步");
 			return response.error('访问频繁!');
 		}
 		redisClient.expire(key, 2);
 		if(id > 1)
 		{
-			//console.log('第'+(step++)+"步");
 			return response.error('来迟一步,已经被人抢先了!');
 		}
-	//存储键值对到魂村服务器
-	var win = 0;
-	var userID = request.params.userID;
-	var otherID = 0;
-	var gambling = 0;
-	var placeID = 0;
-	var goldNum = 0 ;
-	var diamond = 0;
-	var log = new petGamblingLog();
-	var room ;
+		//存储键值对到魂村服务器
+		var win = 0;
+		var userID = request.params.userID;
+		var otherID = 0;
+		var gambling = 0;
+		var placeID = 0;
+		var goldNum = 0 ;
+		var diamond = 0;
+		var log = new petGamblingLog();
+		var room ;
 
-	var newDay = 0;
-	var roomCache = {count:0};
-	var state = '';
-	var random = seedrandom('added entropy.', { entropy: true });
-	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-			if(global.isReview == 0)
+		var newDay = 0;
+		var roomCache = {count:0};
+		var state = '';
+		var random = seedrandom('added entropy.', { entropy: true });
+		return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
+				if(global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
 			}
-		}
-		return redisClient.getAsync('gameRoom:'+userID);
-	}).then(function(cache)
-	{
-		state += '1';
+			return redisClient.getAsync('gameRoom:'+userID);
+		}).then(function(cache)
+		{
+			state += '1';
 		//console.log('第'+state+"步");
 		var now = new Date();
 		if(cache)
@@ -530,179 +522,179 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		//redisClient.setAsync('gameRoom:'+request.params.userID, JSON.stringify(data));
 
 		return new AV.Query('gameRoom').equalTo('roomID', request.params.roomID).first();
-	}).then(function(data)
-	{
-		state += '2';
-		//console.log('第'+state+"步");
-		if(!data)
+		}).then(function(data)
 		{
-			return AV.Promise.error('来迟一步,已经被人抢先了!');
-		}
-		otherID = data.get('userID');
-		gambling = data.get('gambling');
-		placeID = data.get('placeID');
-		if(data.get('placeID') == 5)
-		{
-			diamond = data.get('gambling');
-			//if(roomCache.count <= 0)
-			//{
-			//	return AV.Promise.error('可挑战次数不足!');
-			//}
-			//roomCache.count -= 1;
-		}
-		else
-		{
-			goldNum = data.get('gambling');
-		}
-		room = data;
-
-		var nValue = parseInt(random() * 10);
-		if (request.params.newversion == 1 )
-		{
-			//新版本直接根据结果
-			win = nValue%2;
-			if(userID == 415509 && nValue%5 != 1)
+			state += '2';
+			//console.log('第'+state+"步");
+			if(!data)
 			{
-				win = 1;
+				return AV.Promise.error('来迟一步,已经被人抢先了!');
 			}
-			if(otherID == 89)
+			otherID = data.get('userID');
+			gambling = data.get('gambling');
+			placeID = data.get('placeID');
+			if(data.get('placeID') == 5)
 			{
-				win = 0;
-			}
-		return new AV.Query('chatUsers').containedIn('userID', [userID, otherID]).find();
-		}
-		else
-		{
-			state += '3';
-			response.success(nValue);
-			return AV.Promise.error('over');
-		}
-		
-	}).then(function(results)
-	{
-		state += '4';
-		//console.log('第'+state+"步");
-		if(results.length != 2)
-		{
-			return AV.Promise.error('查询数据有误!');
-		}
-		for (var i = results.length - 1; i >= 0; i--) {
-			var object = results[i];
-			if(object.get('userID') == userID)
-			{
-				if(diamond > 0 && object.get('Diamond') < diamond)
-				{
-					return AV.Promise.error('钻石不足,加入失败!');
-				}
-				if(goldNum > 0 && object.get('goldNum') < goldNum)
-				{
-					return AV.Promise.error('金币不足,加入失败!');
-				}
-			}
-			if(win == 1)
-			{
-				if(object.get('userID') == userID)
-				{
-					if(newDay == 1)
-					{
-						roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
-						//console.log(roomCache.count);
-					}
-					log.set('winDiamondQ', object.get('Diamond'));
-					log.set('winGoldNumQ', object.get('goldNum'));
-					if(diamond >0)
-					{
-						object.increment('Diamond', diamond);
-					}
-					else
-					{
-						object.increment('goldNum', goldNum);
-					}
-				}
+				diamond = data.get('gambling');
+				//if(roomCache.count <= 0)
+				//{
+				//	return AV.Promise.error('可挑战次数不足!');
+				//}
+				//roomCache.count -= 1;
 			}
 			else
 			{
+				goldNum = data.get('gambling');
+			}
+			room = data;
+
+			var nValue = parseInt(random() * 10);
+			if (request.params.newversion == 1 )
+			{
+				//新版本直接根据结果
+				win = nValue%2;
+				if(userID == 415509 && nValue%5 != 1)
+				{
+					win = 1;
+				}
+				if(otherID == 89)
+				{
+					win = 0;
+				}
+				return new AV.Query('chatUsers').containedIn('userID', [userID, otherID]).find();
+			}
+			else
+			{
+				state += '3';
+				response.success(nValue);
+				return AV.Promise.error('over');
+			}
+			
+		}).then(function(results)
+		{
+			state += '4';
+			//console.log('第'+state+"步");
+			if(results.length != 2)
+			{
+				return AV.Promise.error('查询数据有误!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var object = results[i];
 				if(object.get('userID') == userID)
 				{
-					if(newDay == 1)
+					if(diamond > 0 && object.get('Diamond') < diamond)
 					{
-						roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
-						//console.log(roomCache.count);
+						return AV.Promise.error('钻石不足,加入失败!');
 					}
-					log.set('loseDiamondQ', object.get('Diamond'));
-					log.set('loseGoldNumQ', object.get('goldNum'));
-					if(diamond > 0)
+					if(goldNum > 0 && object.get('goldNum') < goldNum)
 					{
-						var diamondIncre = -1 * diamond;
-						//if(limit.count > 0)
-						//{
-						//	diamondIncre = parseInt(-1 *diamond * 0.8);
-						//	console.log('活动期间:' + userID + ',本该扣除钻石' + diamond +'实际扣除钻石:' + diamondIncre);
-						//	limit.count -= 1;
-						//	redisClient.setAsync("gameLimit:"+request.params.userID, JSON.stringify(limit));
-						//}
-						object.increment('Diamond', diamondIncre);
-
+						return AV.Promise.error('金币不足,加入失败!');
 					}
-					else
+				}
+				if(win == 1)
+				{
+					if(object.get('userID') == userID)
 					{
-						object.increment('goldNum', -1*goldNum);
+						if(newDay == 1)
+						{
+							roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
+							//console.log(roomCache.count);
+						}
+						log.set('winDiamondQ', object.get('Diamond'));
+						log.set('winGoldNumQ', object.get('goldNum'));
+						if(diamond >0)
+						{
+							object.increment('Diamond', diamond);
+						}
+						else
+						{
+							object.increment('goldNum', goldNum);
+						}
 					}
 				}
 				else
 				{
-					log.set('winDiamondQ', object.get('Diamond'));
-					log.set('winGoldNumQ', object.get('goldNum'));
-					if(diamond > 0)
+					if(object.get('userID') == userID)
 					{
-						object.increment('Diamond', 2*diamond);
+						if(newDay == 1)
+						{
+							roomCache.count += 20 * common.getVipType(object.get('BonusPoint'));
+							//console.log(roomCache.count);
+						}
+						log.set('loseDiamondQ', object.get('Diamond'));
+						log.set('loseGoldNumQ', object.get('goldNum'));
+						if(diamond > 0)
+						{
+							var diamondIncre = -1 * diamond;
+							//if(limit.count > 0)
+							//{
+							//	diamondIncre = parseInt(-1 *diamond * 0.8);
+							//	console.log('活动期间:' + userID + ',本该扣除钻石' + diamond +'实际扣除钻石:' + diamondIncre);
+							//	limit.count -= 1;
+							//	redisClient.setAsync("gameLimit:"+request.params.userID, JSON.stringify(limit));
+							//}
+							object.increment('Diamond', diamondIncre);
+
+						}
+						else
+						{
+							object.increment('goldNum', -1*goldNum);
+						}
 					}
 					else
 					{
-						object.increment('goldNum', 2*goldNum);
+						log.set('winDiamondQ', object.get('Diamond'));
+						log.set('winGoldNumQ', object.get('goldNum'));
+						if(diamond > 0)
+						{
+							object.increment('Diamond', 2*diamond);
+						}
+						else
+						{
+							object.increment('goldNum', 2*goldNum);
+						}
 					}
-				}
 
+				}
+				//data.fetchWhenSave(true);
 			}
-			//data.fetchWhenSave(true);
-		}
-		return AV.Object.saveAll(results);
-	}).then(function(results)
-	{
-		state += '5';
-		//console.log('第'+state+"步");
-		room.destroy();
-		redisClient.set('gameRoom:' + request.params.userID, JSON.stringify(roomCache));
-		log.set('startUserid', userID);
-		if(win == 1)
+			return AV.Object.saveAll(results);
+		}).then(function(results)
 		{
-			log.set('winnerID', userID);
-			log.set('loserID', otherID);
-		}
-		else
-		{
-			log.set('winnerID', otherID);
-			log.set('loserID', userID);
-		}
-		log.set('roomID', request.params.roomID);
-		log.set('gambling', gambling);
-		log.set('placeID', placeID);
-		log.set('gameID', 3);
-		log.set('goldNum', goldNum);
-		log.set('Diamond', diamond);
-		log.save();
-		response.success(win);
-	}).catch(function(error) 
-	{	
-		state += '6';
-		//console.log('第'+state+"步");
-		if(error == 'over')
-		{
-			return 'over';
-		}
-		return response.error('来迟一步,已经被人抢先了');
-  	});
-});
+			state += '5';
+			//console.log('第'+state+"步");
+			room.destroy();
+			redisClient.set('gameRoom:' + request.params.userID, JSON.stringify(roomCache));
+			log.set('startUserid', userID);
+			if(win == 1)
+			{
+				log.set('winnerID', userID);
+				log.set('loserID', otherID);
+			}
+			else
+			{
+				log.set('winnerID', otherID);
+				log.set('loserID', userID);
+			}
+			log.set('roomID', request.params.roomID);
+			log.set('gambling', gambling);
+			log.set('placeID', placeID);
+			log.set('gameID', 3);
+			log.set('goldNum', goldNum);
+			log.set('Diamond', diamond);
+			log.save();
+			response.success(win);
+		}).catch(function(error) 
+		{	
+			state += '6';
+			//console.log('第'+state+"步");
+			if(error == 'over')
+			{
+				return 'over';
+			}
+			return response.error('来迟一步,已经被人抢先了');
+		});
+	});
 });
 
 //拍卖上架
@@ -732,131 +724,131 @@ AV.Cloud.define('upItem', function(request, response)
 			return response.error('上架失败!');
 		}
 
-	//全局变量
-	var newDay = false;
-	var upCache = {};
-	var fail = new global.failLog();
-	fail.set('IPAddress', request.meta.remoteAddress);
-	fail.set('action', '物品上架');
-	//检查是否已经被封禁
-	redisClient.getAsync('forbiddenUserID').then(function(cacheUser)
-	{
-		if(cacheUser)
+		//全局变量
+		var newDay = false;
+		var upCache = {};
+		var fail = new global.failLog();
+		fail.set('IPAddress', request.meta.remoteAddress);
+		fail.set('action', '物品上架');
+		//检查是否已经被封禁
+		redisClient.getAsync('forbiddenUserID').then(function(cacheUser)
 		{
-			var array = cacheUser.split(",");
-			for (var i = array.length - 1; i >= 0; i--) {
-				if(request.params.userID == array[i])
-				{
-					return response.error('账号已被封禁,无法使用上架服务!');
+			if(cacheUser)
+			{
+				var array = cacheUser.split(",");
+				for (var i = array.length - 1; i >= 0; i--) {
+					if(request.params.userID == array[i])
+					{
+						return response.error('账号已被封禁,无法使用上架服务!');
+					}
 				}
 			}
-		}
-	return redisClient.getAsync('token:' + request.params.userID);
-	}).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-			if(global.isReview == 0)
+		return redisClient.getAsync('token:' + request.params.userID);
+		}).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
+				if(global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
 			}
-		}
-		return redisClient.getAsync('upItemLimit:'+request.params.userID)
-	}).then(function(cache)
-	{
-		var now = new Date();
-		if(cache)
+			return redisClient.getAsync('upItemLimit:'+request.params.userID)
+		}).then(function(cache)
 		{
-			upCache = JSON.parse(cache);
-			var date = upCache.date.split('-');
-			if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
+			var now = new Date();
+			if(cache)
+			{
+				upCache = JSON.parse(cache);
+				var date = upCache.date.split('-');
+				if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
+				{
+					newDay = true;
+					upCache.count = 5;
+				}
+			}
+			else
 			{
 				newDay = true;
 				upCache.count = 5;
 			}
-		}
-		else
-		{
-			newDay = true;
-			upCache.count = 5;
-		}
-		upCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
-		if(upCache.count <= 0 && request.params.userID != 6)
-		{
-			return response.error("上架次数不足,活动期间每天限制为10次!");
-		}
-		upCache.count -= 1;
+			upCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
+			if(upCache.count <= 0 && request.params.userID != 6)
+			{
+				return response.error("上架次数不足,活动期间每天限制为10次!");
+			}
+			upCache.count -= 1;
 
-		var query = new AV.Query('package');
-		query.equalTo('userID', request.params.userID);
-		query.equalTo('itemID', request.params.itemID);
-		return query.first();
+			var query = new AV.Query('package');
+			query.equalTo('userID', request.params.userID);
+			query.equalTo('itemID', request.params.itemID);
+			return query.first();
 
-	}).then(function(data)
-	{
-		fail.set('step', 1);
-		if(!data)
+		}).then(function(data)
 		{
-			return AV.Promise.error("该物品已经没有了!");
-		}
-		var nItemCount = data.get('itemCount');
-		if(nItemCount < request.params.itemCount)
+			fail.set('step', 1);
+			if(!data)
+			{
+				return AV.Promise.error("该物品已经没有了!");
+			}
+			var nItemCount = data.get('itemCount');
+			if(nItemCount < request.params.itemCount)
+			{
+				return AV.Promise.error('道具数量不足!');
+			}
+			if(nItemCount == request.params.itemCount)
+			{
+				return data.destroy();
+			}
+			else
+			{
+				data.increment('itemCount', 0-request.params.itemCount);
+				return data.save();
+			}
+		}).then(function(data)
 		{
-			return AV.Promise.error('道具数量不足!');
-		}
-		if(nItemCount == request.params.itemCount)
-		{
-			return data.destroy();
-		}
-		else
-		{
-			data.increment('itemCount', 0-request.params.itemCount);
-			return data.save();
-		}
-	}).then(function(data)
-	{
-		fail.set('step', 2);
+			fail.set('step', 2);
 
-		var obj = new auctionItems;
-		obj.set('ownerID', request.params.userID);
-		obj.set('itemID', request.params.itemID);
-		obj.set('itemCount', request.params.itemCount);
-		obj.set('floorPrice', request.params.price);
-		obj.set('itemName', request.params.name);
-		if(request.params.otherName)
-			obj.set('otherName', request.params.otherName);
-		if(request.params.buyer)
-			obj.set('buyer', request.params.buyer);
-		obj.fetchWhenSave(true);
-		return obj.save();
-	}).then(function(obj)
-	{
-		redisClient.setAsync('upItemLimit:'+request.params.userID, JSON.stringify(upCache));
+			var obj = new auctionItems;
+			obj.set('ownerID', request.params.userID);
+			obj.set('itemID', request.params.itemID);
+			obj.set('itemCount', request.params.itemCount);
+			obj.set('floorPrice', request.params.price);
+			obj.set('itemName', request.params.name);
+			if(request.params.otherName)
+				obj.set('otherName', request.params.otherName);
+			if(request.params.buyer)
+				obj.set('buyer', request.params.buyer);
+			obj.fetchWhenSave(true);
+			return obj.save();
+		}).then(function(obj)
+		{
+			redisClient.setAsync('upItemLimit:'+request.params.userID, JSON.stringify(upCache));
 
-		fail.set('step', 3);
-		var log = new acutionLog();
-		log.set('ownerID', obj.get('ownerID'));
-		log.set('acutionID', obj.get('auctionID'));
-		log.set('buyFor', "上架");
-		log.set('floorPrice', obj.get('floorPrice'));
-		log.set('itemID', obj.get('itemID'));
-		log.set('itemCount', obj.get('itemCount'));
-		log.set('otherName', obj.get('otherName'));
-		log.set('buyer', obj.get('buyer'));
-		log.save();
-		var auctionID = obj.get('auctionID');
-		
-		return response.success(auctionID);
-	}).catch(function(error)
-	{
-		fail.set('errorInfo', error);
-		fail.set('userID', request.params.userID);
-		fail.set('itemID', request.params.itemID);
-		fail.set('itemCount', request.params.itemCount);
-		fail.save();
-		return response.error('上架失败!');
+			fail.set('step', 3);
+			var log = new acutionLog();
+			log.set('ownerID', obj.get('ownerID'));
+			log.set('acutionID', obj.get('auctionID'));
+			log.set('buyFor', "上架");
+			log.set('floorPrice', obj.get('floorPrice'));
+			log.set('itemID', obj.get('itemID'));
+			log.set('itemCount', obj.get('itemCount'));
+			log.set('otherName', obj.get('otherName'));
+			log.set('buyer', obj.get('buyer'));
+			log.save();
+			var auctionID = obj.get('auctionID');
+			
+			return response.success(auctionID);
+		}).catch(function(error)
+		{
+			fail.set('errorInfo', error);
+			fail.set('userID', request.params.userID);
+			fail.set('itemID', request.params.itemID);
+			fail.set('itemCount', request.params.itemCount);
+			fail.save();
+			return response.error('上架失败!');
+		});
 	});
-});
 });
 
 //购买或下架
@@ -885,184 +877,184 @@ AV.Cloud.define('buyItem', function(request, response)
 		fail.set('IPAddress', request.meta.remoteAddress);
 		log.set('des', "交易中心购买");
 
-	return redisClient.getAsync('token:' + reqData.buyer).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-			if(global.isReview == 0)
+		return redisClient.getAsync('token:' + reqData.buyer).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
-			}
-		}
-		var query = new AV.Query('auctionItems');
-		query.equalTo('auctionID', reqData.auctionID);
-		var auctionItem;
-		var diamond = 0;
-		var buyer = 0;
-
-		return query.first();
-	}).then(function(data)//查询数据
-	{
-		fail.set('step', 1);
-		if (!data)
-		{
-			return AV.Promise.error('该物品已经被买走了');
-		}
-		reqData.owner = data.get('ownerID');
-		reqData.price = data.get('floorPrice');
-		reqData.itemID = data.get('itemID');
-		reqData.itemCount = data.get('itemCount');
-		log.set('acutionID', data.get('auctionID'));
-		log.set('floorPrice', data.get('floorPrice'));
-		log.set('userid', data.get('ownerID'));
-		log.set('itemID', data.get('itemID'));
-		log.set('itemCount', data.get('itemCount'));
-		log.set('buyer', data.get('buyer'));
-		buyer = data.get('buyer');
-		if(data.get('buyer') && data.get('buyer') > 0 && data.get('buyer') != reqData.buyer && data.get('ownerID') != reqData.buyer)
-		{
-			return AV.Promise.error('指定购买人与实际购买人不一致!');
-		}
-		log.set('buyerName', data.get('otherName'));
-		diamond = data.get('floorPrice');
-		auctionItem = data;
-
-		if(reqData.owner == reqData.buyer)
-		{
-			console.log('物品下架!'+reqData.owner);
-			if(common.checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
-			{
-				redisClient.getAsync('upItemLimit:' + reqData.owner).then(function(cache)
+				if(global.isReview == 0)
 				{
-					var upCache = JSON.parse(cache);
-					upCache.count += 1;
-					redisClient.setAsync('upItemLimit:' + reqData.owner, JSON.stringify(upCache));
-				});
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			var query = new AV.Query('auctionItems');
+			query.equalTo('auctionID', reqData.auctionID);
+			var auctionItem;
+			var diamond = 0;
+			var buyer = 0;
+
+			return query.first();
+		}).then(function(data)//查询数据
+		{
+			fail.set('step', 1);
+			if (!data)
+			{
+				return AV.Promise.error('该物品已经被买走了');
+			}
+			reqData.owner = data.get('ownerID');
+			reqData.price = data.get('floorPrice');
+			reqData.itemID = data.get('itemID');
+			reqData.itemCount = data.get('itemCount');
+			log.set('acutionID', data.get('auctionID'));
+			log.set('floorPrice', data.get('floorPrice'));
+			log.set('userid', data.get('ownerID'));
+			log.set('itemID', data.get('itemID'));
+			log.set('itemCount', data.get('itemCount'));
+			log.set('buyer', data.get('buyer'));
+			buyer = data.get('buyer');
+			if(data.get('buyer') && data.get('buyer') > 0 && data.get('buyer') != reqData.buyer && data.get('ownerID') != reqData.buyer)
+			{
+				return AV.Promise.error('指定购买人与实际购买人不一致!');
+			}
+			log.set('buyerName', data.get('otherName'));
+			diamond = data.get('floorPrice');
+			auctionItem = data;
+
+			if(reqData.owner == reqData.buyer)
+			{
+				console.log('物品下架!'+reqData.owner);
+				if(common.checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
+				{
+					redisClient.getAsync('upItemLimit:' + reqData.owner).then(function(cache)
+					{
+						var upCache = JSON.parse(cache);
+						upCache.count += 1;
+						redisClient.setAsync('upItemLimit:' + reqData.owner, JSON.stringify(upCache));
+					});
+				}
+				
+				return AV.Promise.as('The good result.');
+			}
+
+		//}).then(function(success)
+		//{
+			fail.set('step', 2);
+			var query1 = new AV.Query('chatUsers');
+	  		query1.equalTo('userID', reqData.buyer);
+
+	  		var query2 = new AV.Query('chatUsers');
+	  		query2.equalTo('userID', reqData.owner);
+			var query = AV.Query.or(query1, query2);
+			return query.find();
+		}).then(function(results)
+		{
+			if(reqData.owner == reqData.buyer)
+			{
+				fail.set('action', "下架物品");
+				return AV.Promise.as('The good result.');
+			}
+			fail.set('step', 3);
+			
+			for (var i = 0; i < results.length; i++)
+			{
+				var obj = results[i];
+				if(obj.get('userID') == reqData.owner)//收钱方
+				{
+
+					log.set('diamondBefore', obj.get('Diamond'));
+
+					if(buyer > 0)
+					{
+						if( obj.get('freeAuctionAt') && common.checkDaySame(new Date(), obj.get('freeAuctionAt')))
+						{
+							if(diamond >= 5 && diamond < 10)
+							{
+								diamond -= 1;
+							}
+							if(diamond >= 10 && diamond < 100)
+							{
+								diamond = parseInt(diamond * 0.9);
+							}
+							else if(diamond >= 100 && diamond < 500)
+							{
+								diamond = parseInt(diamond*0.85);
+							}
+							else if(diamond>= 500)
+							{
+								diamond = parseInt(diamond*0.8);
+							}
+						}
+						else if(diamond >= 5)//5钻以下的东西不收手续费
+						{
+							obj.set('freeAuctionAt', new Date());
+						}
+					}
+					else if(diamond >= 200)//超过200钻会收取10%的手续费
+					{
+						diamond = parseInt(diamond*0.9);
+					}
+					obj.increment('Diamond', diamond);
+					log.set('diamondIncrease', diamond);
+				}
+				else
+				{
+					if(obj.get('Diamond') < reqData.price)
+					{
+						log.set('otherdiamondBefore', obj.get('Diamond'));
+						//response.error('钻石数量不足!');
+						return AV.Promise.error('钻石数量不足!');
+					}
+					obj.increment('Diamond', 0 - reqData.price);
+				}
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(resutls)
+		{
+			fail.set('step', 4);
+			log.set('otherid', reqData.buyer);
+			if(reqData.owner == 6)
+			{
+				console.log('不删除'+reqData.owner);
+				return AV.Promise.as('ok');
+			}
+			return  auctionItem.destroy();
+		}).then(function(data)
+		{
+			fail.set('step', 5);
+			query = new AV.Query('package');
+			query.equalTo('userID', reqData.buyer);
+			return query.find();
+		}).then(function(results)
+		{
+			fail.set('step', 6);
+			for (var i = results.length - 1; i >= 0; i--) {
+				var obj = results[i];
+				if (obj.get('itemID') == reqData.itemID) 
+				{
+					obj.increment('itemCount', reqData.itemCount);
+					return obj.save();
+				}
 			}
 			
-			return AV.Promise.as('The good result.');
-		}
-
-	//}).then(function(success)
-	//{
-		fail.set('step', 2);
-		var query1 = new AV.Query('chatUsers');
-  		query1.equalTo('userID', reqData.buyer);
-
-  		var query2 = new AV.Query('chatUsers');
-  		query2.equalTo('userID', reqData.owner);
-		var query = AV.Query.or(query1, query2);
-		return query.find();
-	}).then(function(results)
-	{
-		if(reqData.owner == reqData.buyer)
+			var obj = new package();
+			obj.set('itemID', reqData.itemID);
+			obj.set('itemCount', reqData.itemCount);
+			obj.set('userID', reqData.buyer);
+			return obj.save();
+		}).then(function(success)
 		{
-			fail.set('action', "下架物品");
-			return AV.Promise.as('The good result.');
-		}
-		fail.set('step', 3);
-		
-		for (var i = 0; i < results.length; i++)
-		{
-			var obj = results[i];
-			if(obj.get('userID') == reqData.owner)//收钱方
+			fail.set('step', 7);
+			response.success({'price':diamond});
+			if(reqData.owner != reqData.buyer)
 			{
-
-				log.set('diamondBefore', obj.get('Diamond'));
-
-				if(buyer > 0)
-				{
-					if( obj.get('freeAuctionAt') && common.checkDaySame(new Date(), obj.get('freeAuctionAt')))
-					{
-						if(diamond >= 5 && diamond < 10)
-						{
-							diamond -= 1;
-						}
-						if(diamond >= 10 && diamond < 100)
-						{
-							diamond = parseInt(diamond * 0.9);
-						}
-						else if(diamond >= 100 && diamond < 500)
-						{
-							diamond = parseInt(diamond*0.85);
-						}
-						else if(diamond>= 500)
-						{
-							diamond = parseInt(diamond*0.8);
-						}
-					}
-					else if(diamond >= 5)//5钻以下的东西不收手续费
-					{
-						obj.set('freeAuctionAt', new Date());
-					}
-				}
-				else if(diamond >= 200)//超过200钻会收取10%的手续费
-				{
-					diamond = parseInt(diamond*0.9);
-				}
-				obj.increment('Diamond', diamond);
-				log.set('diamondIncrease', diamond);
+				log.save();
 			}
-			else
-			{
-				if(obj.get('Diamond') < reqData.price)
-				{
-					log.set('otherdiamondBefore', obj.get('Diamond'));
-					//response.error('钻石数量不足!');
-					return AV.Promise.error('钻石数量不足!');
-				}
-				obj.increment('Diamond', 0 - reqData.price);
-			}
-		}
-		return AV.Object.saveAll(results);
-	}).then(function(resutls)
-	{
-		fail.set('step', 4);
-		log.set('otherid', reqData.buyer);
-		if(reqData.owner == 6)
+			
+		}).catch(function(error)
 		{
-			console.log('不删除'+reqData.owner);
-			return AV.Promise.as('ok');
-		}
-		return  auctionItem.destroy();
-	}).then(function(data)
-	{
-		fail.set('step', 5);
-		query = new AV.Query('package');
-		query.equalTo('userID', reqData.buyer);
-		return query.find();
-	}).then(function(results)
-	{
-		fail.set('step', 6);
-		for (var i = results.length - 1; i >= 0; i--) {
-			var obj = results[i];
-			if (obj.get('itemID') == reqData.itemID) 
-			{
-				obj.increment('itemCount', reqData.itemCount);
-				return obj.save();
-			}
-		}
-		
-		var obj = new package();
-		obj.set('itemID', reqData.itemID);
-		obj.set('itemCount', reqData.itemCount);
-		obj.set('userID', reqData.buyer);
-		return obj.save();
-	}).then(function(success)
-	{
-		fail.set('step', 7);
-		response.success({'price':diamond});
-		if(reqData.owner != reqData.buyer)
-		{
-			log.save();
-		}
-		
-	}).catch(function(error)
-	{
-		fail.set('errorInfo', error);
-		fail.save();
-		response.error(error);
-	});	
+			fail.set('errorInfo', error);
+			fail.save();
+			response.error(error);
+		});	
 	});
 });
 
@@ -1100,44 +1092,43 @@ AV.Cloud.define('silverChange', function(request, response)
 		{
 			return response.error("兑换冷却中(每次兑换需要间隔6个小时)!");
 		}
-	
-	var log = new global.moneyLog();
-	var query = new AV.Query('chatUsers');
-	query.equalTo('userID', request.params.userID);
-	query.first().then(function(data)
-	{
-		if(!data)
+		var log = new global.moneyLog();
+		var query = new AV.Query('chatUsers');
+		query.equalTo('userID', request.params.userID);
+		query.first().then(function(data)
 		{
-			return AV.Promise.error('There was an error.');
-		}
-		log.set('userid', data.get('userID'));
-		log.set('goldBefore', data.get('goldNum'));
-		log.set('silverBefore', data.get('silverCoin'));
-		log.set('des','银币兑换');
-		log.set('goldIncrease', gold);
-		if(data.get('goldNum') < -1*gold  || data.get('silverCoin') < -1 * silver)
+			if(!data)
+			{
+				return AV.Promise.error('There was an error.');
+			}
+			log.set('userid', data.get('userID'));
+			log.set('goldBefore', data.get('goldNum'));
+			log.set('silverBefore', data.get('silverCoin'));
+			log.set('des','银币兑换');
+			log.set('goldIncrease', gold);
+			if(data.get('goldNum') < -1*gold  || data.get('silverCoin') < -1 * silver)
+			{
+				return AV.Promise.error('There was an error.');
+			}
+			data.increment('goldNum', gold);
+			data.increment('silverCoin', silver);
+			data.fetchWhenSave(true);
+			return data.save();
+		}).then(function(data)
 		{
-			return AV.Promise.error('There was an error.');
-		}
-		data.increment('goldNum', gold);
-		data.increment('silverCoin', silver);
-		data.fetchWhenSave(true);
-		return data.save();
-	}).then(function(data)
-	{
-		log.set('goldAfter', data.get('goldNum'));
-		log.set('silverAfter', data.get('silverCoin'));
-		log.save();
-		var retData = {goldNum:data.get('goldNum'), silverCoin:data.get("silverCoin")};
-		//req[key] = parseInt(new Date().getTime()/3600000);
-		return response.success(retData);
+			log.set('goldAfter', data.get('goldNum'));
+			log.set('silverAfter', data.get('silverCoin'));
+			log.save();
+			var retData = {goldNum:data.get('goldNum'), silverCoin:data.get("silverCoin")};
+			//req[key] = parseInt(new Date().getTime()/3600000);
+			return response.success(retData);
 
-	}).catch(function(error)
-	{
-		log.save();
-		return response.error('金币不足!');
+		}).catch(function(error)
+		{
+			log.save();
+			return response.error('金币不足!');
+		});
 	});
-});
 });
 AV.Cloud.define('saveLandLog', function(request, response)
 {
@@ -1172,9 +1163,9 @@ AV.Cloud.define('sealAccount', function(request, response)
   	obj.set('IP',clientIP);
   	obj.save();
   	return response.success('success');
-  },function(error)
+  }).catch(function(error)
   {
-  		return response.error('未查询到用户信息!');
+  	return response.error('未查询到用户信息!');
   });
   
 });
@@ -1280,79 +1271,79 @@ AV.Cloud.define('harvestPlant',function(request, response)
 			return response.error('收取失败!');
 		}
 
-	var goldCount = 0;
-	var charmCount =0;
-	var user = 0;
-	var diamond = 0;
-	var plantID  = 0;
-	var count = 0;
-	return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first().then(function(data)
-	{
-		if(!data || data.get('plant') == 0)
+		var goldCount = 0;
+		var charmCount =0;
+		var user = 0;
+		var diamond = 0;
+		var plantID  = 0;
+		var count = 0;
+		return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first().then(function(data)
 		{
-			return AV.Promise.error('查询失败!');
-		}
-		plantID = data.get('plant');
-		var second = new Date().getTime()/1000 + 3600*8 - data.get('plantTime');
-		var plantTime = (plantID * 8 +4)*3600;
-		if(second < plantTime)//未到收获时间
-		{	
-			return AV.Promise.error('未到收获时间');
-		}
-		
-		count = data.get('plantCount');
-		if(count > (plantID * 2 + 10))
-		{
-			return AV.Promise.error('error');
-		}
-		goldCount = gold[plantID] * count;
-		charmCount = charm[plantID] * count;
-		user = data.get('userID');
-		if (plantID >= 5)//如果此土地等级大于等于6
-        {
-            if (parseInt(Math.random() * 1000) % 10 ==0)
-            {
-                diamond = parseInt(Math.random() * 1000) % 20 + 1;
-            }
-         }
-		data.set('plant',0);
-		data.set('plantTime',0);
-		data.set('plantCount', 0);
-		return data.save();
+			if(!data || data.get('plant') == 0)
+			{
+				return AV.Promise.error('查询失败!');
+			}
+			plantID = data.get('plant');
+			var second = new Date().getTime()/1000 + 3600*8 - data.get('plantTime');
+			var plantTime = (plantID * 8 +4)*3600;
+			if(second < plantTime)//未到收获时间
+			{	
+				return AV.Promise.error('未到收获时间');
+			}
+			
+			count = data.get('plantCount');
+			if(count > (plantID * 2 + 10))
+			{
+				return AV.Promise.error('error');
+			}
+			goldCount = gold[plantID] * count;
+			charmCount = charm[plantID] * count;
+			user = data.get('userID');
+			if (plantID >= 5)//如果此土地等级大于等于6
+	        {
+	            if (parseInt(Math.random() * 1000) % 10 ==0)
+	            {
+	                diamond = parseInt(Math.random() * 1000) % 20 + 1;
+	            }
+	         }
+			data.set('plant',0);
+			data.set('plantTime',0);
+			data.set('plantCount', 0);
+			return data.save();
 
-	}).then(function(data)
-	{
-		return new AV.Query('chatUsers').equalTo('userID',user).first();
-	}).then(function(data)
-	{
-		data.increment('goldNum', goldCount);
-		data.increment('beLikedNum', charmCount);
-		if(diamond > 0)
+		}).then(function(data)
 		{
-			data.increment('Diamond', diamond);
-		}
-		//日魅力增加
-		if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
+			return new AV.Query('chatUsers').equalTo('userID',user).first();
+		}).then(function(data)
 		{
-			data.increment('dailylike', charmCount);
-		}
-		else
+			data.increment('goldNum', goldCount);
+			data.increment('beLikedNum', charmCount);
+			if(diamond > 0)
+			{
+				data.increment('Diamond', diamond);
+			}
+			//日魅力增加
+			if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
+			{
+				data.increment('dailylike', charmCount);
+			}
+			else
+			{
+				data.set('dailylike', charmCount);
+				data.set('dailylikeAt', new Date());
+			}
+			data.fetchWhenSave(true);
+			return data.save();
+		}).then(function(data)
 		{
-			data.set('dailylike', charmCount);
-			data.set('dailylikeAt', new Date());
-		}
-		data.fetchWhenSave(true);
-		return data.save();
-	}).then(function(data)
-	{
-		var retData = {'nCharmIncrease':charmCount,'goldIncrease':goldCount,'DiamondIncrease':diamond,
-						'goldNum':data.get('goldNum'),'Diamond':data.get('Diamond'),'plant':plantID,'plantCount':count};
-		
-		response.success(retData);
-	}).catch(function(error)
-	{
-		response.error(error);
-	});
+			var retData = {'nCharmIncrease':charmCount,'goldIncrease':goldCount,'DiamondIncrease':diamond,
+							'goldNum':data.get('goldNum'),'Diamond':data.get('Diamond'),'plant':plantID,'plantCount':count};
+			
+			response.success(retData);
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
 	});
 });
 
@@ -1445,71 +1436,71 @@ AV.Cloud.define('stealPlant',function(request, response)
 		{
 			return response.error('偷取失败!');
 		}
-	var query = new AV.Query('visitorLog');
-	
-	query.equalTo('visitorJob', 10);
-	query.equalTo('buildingNo', request.params.buildingNo);
-	query.equalTo('visitorID', request.params.userID);
-	query.greaterThan('visitorTime', parseInt(new Date()/(86400000)) * 86400);
-
-	var charmIncrease = 0;
-	var hostUser = 0;
-	var result = ''; 
-	query.first().then(function(data)
-	{
-		if (data) 
-		{
-			return AV.Promise.error('error');
-		}
-		return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first();
-	}).then(function(data)
-	{
-		var plantCount = data.get('plantCount');
-		if(data.get('plant') == 0 || plantCount <= data.get('plantMax') * 0.6)
-		{
-			return AV.Promise.error('error');
-		}
-		var stealCount = data.get('plantMax') * 0.2 *Math.random() + 1;//最少能偷取一个
-		if(plantCount - stealCount < data.get('plantMax') * 0.6)
-		{
-			stealCount = data.get('plantMax') * 0.6 - plantCount;
-		}
-		if(stealCount < 1)
-			return AV.Promise.error('error');
-		data.increment('plantCount', parseInt(-1 * stealCount));
-		charmIncrease = charm[data.get('plant')] * parseInt(stealCount);
-		hostUser = data.get('userID');
-		//data.fetchWhenSave(true);
-		result = '偷取了'+parseInt(stealCount)+'个'+plantName[data.get('plant')];
-		return data.save();
-	}).then(function(data)
-	{
-
-		var log = new visitorLog();
-		log.set('visitorJob', 10);
-		log.set('visitorTime', parseInt(new Date().getTime()/1000));
-		log.set('hostUser', hostUser);
-		log.set('visitorID',request.params.userID);
-		log.set('buildingNo',request.params.buildingNo);
-		log.set('visitorName', request.params.userName);
-		log.set('visitorResult',result);
-		log.save();
-		return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first();
-	}).then(function(data)
-	{
-		if(!data)
-		{
-			return AV.Promise.error('error');
-		}
-		data.increment('beLikedNum', charmIncrease);
-		data.save();
-		response.success('完成!');
-	}).catch(function(error)
-	{	
+		var query = new AV.Query('visitorLog');
 		
-		response.error('error');
+		query.equalTo('visitorJob', 10);
+		query.equalTo('buildingNo', request.params.buildingNo);
+		query.equalTo('visitorID', request.params.userID);
+		query.greaterThan('visitorTime', parseInt(new Date()/(86400000)) * 86400);
+
+		var charmIncrease = 0;
+		var hostUser = 0;
+		var result = ''; 
+		query.first().then(function(data)
+		{
+			if (data) 
+			{
+				return AV.Promise.error('error');
+			}
+			return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first();
+		}).then(function(data)
+		{
+			var plantCount = data.get('plantCount');
+			if(data.get('plant') == 0 || plantCount <= data.get('plantMax') * 0.6)
+			{
+				return AV.Promise.error('error');
+			}
+			var stealCount = data.get('plantMax') * 0.2 *Math.random() + 1;//最少能偷取一个
+			if(plantCount - stealCount < data.get('plantMax') * 0.6)
+			{
+				stealCount = data.get('plantMax') * 0.6 - plantCount;
+			}
+			if(stealCount < 1)
+				return AV.Promise.error('error');
+			data.increment('plantCount', parseInt(-1 * stealCount));
+			charmIncrease = charm[data.get('plant')] * parseInt(stealCount);
+			hostUser = data.get('userID');
+			//data.fetchWhenSave(true);
+			result = '偷取了'+parseInt(stealCount)+'个'+plantName[data.get('plant')];
+			return data.save();
+		}).then(function(data)
+		{
+
+			var log = new visitorLog();
+			log.set('visitorJob', 10);
+			log.set('visitorTime', parseInt(new Date().getTime()/1000));
+			log.set('hostUser', hostUser);
+			log.set('visitorID',request.params.userID);
+			log.set('buildingNo',request.params.buildingNo);
+			log.set('visitorName', request.params.userName);
+			log.set('visitorResult',result);
+			log.save();
+			return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first();
+		}).then(function(data)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('error');
+			}
+			data.increment('beLikedNum', charmIncrease);
+			data.save();
+			response.success('完成!');
+		}).catch(function(error)
+		{	
+			
+			response.error('error');
+		});
 	});
-});
 });
 
 //结婚装饰续费
@@ -1917,186 +1908,186 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		{
 			return response.error('访问太过频繁!');
 		}
-	var random = seedrandom('added entropy.', { entropy: true });
+		var random = seedrandom('added entropy.', { entropy: true });
 
-	var itemID = request.params.itemID;
-	var saveDatas = {};
-	var plus = 0.0;
-	var saveObjects = new Array();
-	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-			if(global.isReview == 0)
+		var itemID = request.params.itemID;
+		var saveDatas = {};
+		var plus = 0.0;
+		var saveObjects = new Array();
+		return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
-			}
-		}
-		return new AV.Query('package').equalTo('userID', request.params.userID).find();
-	}).then(function(results)
-	{
-		var data = undefined;
-		for (var i = results.length - 1; i >= 0; i--) {
-			if(results[i].get('itemID') == itemID)
-			{
-				data = results[i];
-			}
-		}
-		if(!data)
-		{
-			return AV.Promise.error('error');
-		}
-		var count = data.get('itemCount');
-		if(count > 20)
-		{
-			count = 20;
-		}
-
-		if(itemID > 11 && itemID < 16)//批量使用道具,累加所有增长
-		{
-			for (var i = count - 1; i >= 0; i--) 
-			{
-				plus += random();
-			}
-		}
-		else//批量开宝箱
-		{
-			for(var i = 0; i < count; i++)
-			{
-				var number = random();
-				var rand = Math.floor(number * 100);
-				var array = chestValue[itemID];
-				var size = 0;
-				for (var j = array.length - 1; j >= 0; j--) 
+				if(global.isReview == 0)
 				{
-					if(rand >= size && rand < size+ parseInt(array[j].random))
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('package').equalTo('userID', request.params.userID).find();
+		}).then(function(results)
+		{
+			var data = undefined;
+			for (var i = results.length - 1; i >= 0; i--) {
+				if(results[i].get('itemID') == itemID)
+				{
+					data = results[i];
+				}
+			}
+			if(!data)
+			{
+				return AV.Promise.error('error');
+			}
+			var count = data.get('itemCount');
+			if(count > 20)
+			{
+				count = 20;
+			}
+
+			if(itemID > 11 && itemID < 16)//批量使用道具,累加所有增长
+			{
+				for (var i = count - 1; i >= 0; i--) 
+				{
+					plus += random();
+				}
+			}
+			else//批量开宝箱
+			{
+				for(var i = 0; i < count; i++)
+				{
+					var number = random();
+					var rand = Math.floor(number * 100);
+					var array = chestValue[itemID];
+					var size = 0;
+					for (var j = array.length - 1; j >= 0; j--) 
 					{
-						if( saveDatas[array[j].item] )
+						if(rand >= size && rand < size+ parseInt(array[j].random))
 						{
-							saveDatas[array[j].item] += 1;
+							if( saveDatas[array[j].item] )
+							{
+								saveDatas[array[j].item] += 1;
+							}
+							else
+							{
+								saveDatas[array[j].item] = 1;
+							}
+							break;
 						}
 						else
 						{
-							saveDatas[array[j].item] = 1;
+							size += parseInt(array[j].random);
 						}
-						break;
-					}
-					else
-					{
-						size += parseInt(array[j].random);
 					}
 				}
-			}
-			for(var key in saveDatas)
-			{
-				var bhas = false;
-				for (var i = results.length - 1; i >= 0; i--) {
-					if(results[i].get('itemID') == parseInt(key))
-					{
-						bhas = true;
-						results[i].increment('itemCount', saveDatas[key]);
-						saveObjects.push(results[i]);
-						//results[i].save();
-						break;
-					}
-				}
-				if(bhas == false)
+				for(var key in saveDatas)
 				{
-					var obj = new package();
-					obj.set('userID', request.params.userID);
-					obj.set('itemID', parseInt(key));
-					obj.set('itemCount', saveDatas[key]);
-					saveObjects.push(obj);
-				//obj.save();
+					var bhas = false;
+					for (var i = results.length - 1; i >= 0; i--) {
+						if(results[i].get('itemID') == parseInt(key))
+						{
+							bhas = true;
+							results[i].increment('itemCount', saveDatas[key]);
+							saveObjects.push(results[i]);
+							//results[i].save();
+							break;
+						}
+					}
+					if(bhas == false)
+					{
+						var obj = new package();
+						obj.set('userID', request.params.userID);
+						obj.set('itemID', parseInt(key));
+						obj.set('itemCount', saveDatas[key]);
+						saveObjects.push(obj);
+					//obj.save();
+					}
 				}
 			}
-		}
-		saveDatas[itemID] = -1*count;
-		if(data.get('itemCount') == count)
-		{
-			data.destroy();
-		}
-		else
-		{
-			data.increment('itemCount', -1* count);
-		}
-		saveObjects.push(data);
-		if(itemID > 11 && itemID < 16)
-		{
-			return new AV.Query('petInfo').equalTo('petID', petID).first();
-		}
-		else
-		{
-			return AV.Object.saveAll(saveObjects);
-		}
-	}).then(function(data)
-	{
-		saveDatas.plus = parseInt(10 * plus);
-		if (itemID == 12)
-		{
-			var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
-			if(data.get('attackBook') > bookCount)
+			saveDatas[itemID] = -1*count;
+			if(data.get('itemCount') == count)
 			{
-				return AV.Promise.error('使用失败,可使用次数不足!!');
+				data.destroy();
 			}
-			data.increment('attackBook', -1*saveDatas[itemID]);
-			data.increment('attackPlus', parseInt(10 * plus));
+			else
+			{
+				data.increment('itemCount', -1* count);
+			}
+			saveObjects.push(data);
+			if(itemID > 11 && itemID < 16)
+			{
+				return new AV.Query('petInfo').equalTo('petID', petID).first();
+			}
+			else
+			{
+				return AV.Object.saveAll(saveObjects);
+			}
+		}).then(function(data)
+		{
+			saveDatas.plus = parseInt(10 * plus);
+			if (itemID == 12)
+			{
+				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				if(data.get('attackBook') > bookCount)
+				{
+					return AV.Promise.error('使用失败,可使用次数不足!!');
+				}
+				data.increment('attackBook', -1*saveDatas[itemID]);
+				data.increment('attackPlus', parseInt(10 * plus));
 
-			saveObjects.push(data);
-			return AV.Object.saveAll(saveObjects);
-		}
-		else if (itemID == 13)
-		{
-			var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
-			if(data.get('healthBook') > bookCount)
-			{
-				return AV.Promise.error('使用失败,可使用次数不足!!');
+				saveObjects.push(data);
+				return AV.Object.saveAll(saveObjects);
 			}
-			data.increment('healthBook', -1*saveDatas[itemID]);
-			data.increment('healthPlus', parseInt(100 * plus));
-			saveObjects.push(data);
-			return AV.Object.saveAll(saveObjects);
-		}
-		else if (itemID == 14)
-		{
-			var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
-			if(data.get('defenseBook') > bookCount)
+			else if (itemID == 13)
 			{
-				return AV.Promise.error('使用失败,可使用次数不足!!');
+				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				if(data.get('healthBook') > bookCount)
+				{
+					return AV.Promise.error('使用失败,可使用次数不足!!');
+				}
+				data.increment('healthBook', -1*saveDatas[itemID]);
+				data.increment('healthPlus', parseInt(100 * plus));
+				saveObjects.push(data);
+				return AV.Object.saveAll(saveObjects);
 			}
-			data.increment('defenseBook', -1*saveDatas[itemID]);
-			data.increment('defensePlus', parseInt(5 * plus));
-			saveObjects.push(data);
-			return AV.Object.saveAll(saveObjects);
-		}
-		else if (itemID == 15)
-		{
-			var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
-			if(data.get('speedBook') > bookCount)
+			else if (itemID == 14)
 			{
-				return AV.Promise.error('使用失败,可使用次数不足!!');
+				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				if(data.get('defenseBook') > bookCount)
+				{
+					return AV.Promise.error('使用失败,可使用次数不足!!');
+				}
+				data.increment('defenseBook', -1*saveDatas[itemID]);
+				data.increment('defensePlus', parseInt(5 * plus));
+				saveObjects.push(data);
+				return AV.Object.saveAll(saveObjects);
 			}
-			data.increment('speedBook', -1*saveDatas[itemID]);
-			data.increment('speedPlus', parseInt(10 * plus));
-			saveObjects.push(data);
-			return AV.Object.saveAll(saveObjects);
-		}
-		else//开启宝箱结束
-		{
-			return AV.Promise.error('over');
-		}
-	}).then(function(success)
-	{
-		return response.success(saveDatas);
-	}).catch(function(error)
-	{
-		if(error == 'over')
+			else if (itemID == 15)
+			{
+				var bookCount = Math.floor(data.get('level')/10) *100 + saveDatas[itemID];
+				if(data.get('speedBook') > bookCount)
+				{
+					return AV.Promise.error('使用失败,可使用次数不足!!');
+				}
+				data.increment('speedBook', -1*saveDatas[itemID]);
+				data.increment('speedPlus', parseInt(10 * plus));
+				saveObjects.push(data);
+				return AV.Object.saveAll(saveObjects);
+			}
+			else//开启宝箱结束
+			{
+				return AV.Promise.error('over');
+			}
+		}).then(function(success)
 		{
 			return response.success(saveDatas);
-		}
-		return response.error(error);
+		}).catch(function(error)
+		{
+			if(error == 'over')
+			{
+				return response.success(saveDatas);
+			}
+			return response.error(error);
+		});
 	});
-});
 });
 
 AV.Cloud.define('ComposeItem', function(request, response){
@@ -2201,183 +2192,183 @@ AV.Cloud.define('UseItem', function(req, res)
 		{
 			return res.error('访问太过频繁!');
 		}
-	var item = req.params.itemID;
-	var newItem = -1;
-	var saveObj = new Array();
-	var meili = 0;
-	return redisClient.getAsync('token:' + req.params.userID).then(function(cache)
-	{	
-		if(!cache || cache != req.params.token)
-		{
-			if(global.isReview == 0)
+		var item = req.params.itemID;
+		var newItem = -1;
+		var saveObj = new Array();
+		var meili = 0;
+		return redisClient.getAsync('token:' + req.params.userID).then(function(cache)
+		{	
+			if(!cache || cache != req.params.token)
 			{
-				return AV.Promise.error('访问失败!');
-			}
-		}
-		return new AV.Query('package').equalTo('itemID', item).equalTo('userID', req.params.userID).first();
-	}).then(function(data)
-	{
-		if(!data || data.get('itemCount') <= 0)
-		{
-			return AV.Promise.error('道具不足,无法使用!');
-		}
-
-		var nAttackType = parseInt(Math.random()*10)%5;
-		var items = {'46':[52, 52, 50, 50, 49], '47':[53, 53, 51, 51, 22], '48':[26, 26, 27, 27, 23]};
-		if(item > 45 && item < 49)
-		{
-			if(data.get('itemCount') < 20)
-			{
-				return AV.Promise.error('道具不足,无法使用!');
-			}
-			newItem = items[item][nAttackType];
-			if(data.get('itemCount') == 20)
-			{
-				data.destroy();
-			}
-			else
-			{
-				data.increment('itemCount', -20);
-				saveObj.push(data);
-			}
-			return new AV.Query('package').equalTo('userID', req.params.userID).equalTo('itemID',newItem).first();
-		}
-		else if(item == 25 || item == 28)
-		{
-			if(data.get('itemCount') <= 0)
-			{
-				data.destroy();
-				return AV.Promise.error('道具不足,无法使用!');
-			}
-			else if(data.get('itemCount') == 1)
-			{
-				data.destroy();
-			}
-			else 
-			{
-				saveObj.push(data);
-				data.increment('itemCount', -1);
-			}
-			return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
-		}
-		else
-		{
-			//data.increment('itemCount', -1);
-			data.destroy();
-			saveObj.push(data);
-			return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
-		}
-	}).then(function(data)
-	{
-		//开启宝箱
-		if(newItem < 0)
-		{
-			if(!data)
-			{
-				return AV.Promise.error('查询失败!');
-			}
-			var level = (item - 29) * 10;
-			if(data.get('petReword') > level)
-			{
-				
-				return AV.Promise.error('你已经领取过礼包了!');
-			}
-			data.increment('goldNum', petGift[item]['goldNum']);
-			data.increment('goldMax', petGift[item]['goldMax']);
-			data.increment('Diamond', petGift[item]['diamond']);
-			data.set('petReword', level+10);
-			saveObj.push(data);
-			return new AV.Query('package').equalTo('userID', req.params.userID).containedIn('itemID', 
-				[item+1, petGift[item.toString()]['item']]).find();
-		}
-		else if(item == 25 || item == 28)
-		{
-			meili = Math.random() * 1000;
-			if(item == 28)
-			{
-				meili *= 10;
-			}
-			data.increment('beLikedNum', meili);
-			saveObj.push(data);
-			return AV.Object.saveAll(saveObj);
-		}
-		else
-		{
-			if(data)
-			{
-				data.increment('itemCount', 1);
-				saveObj.push(data);
-			}
-			else
-			{
-				var obj = new package();
-				obj.set('itemID', newItem);
-				obj.set('itemCount', 1);
-				obj.set('userID', req.params.userID);
-				saveObj.push(obj);
-			}
-			return AV.Object.saveAll(saveObj);
-		}
-	}).then(function(results)
-	{
-		if(newItem > 0)
-		{
-			res.success({'itemID':newItem,'charm':meili});
-			return AV.Promise.error('success');
-		}
-		else
-		{
-			
-			var count = 0;
-			for (var i = results.length - 1; i >= 0; i--) {
-				var data = results[i];
-				if(data.get('itemID') == newItem)
+				if(global.isReview == 0)
 				{
-					count+= 1;
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('package').equalTo('itemID', item).equalTo('userID', req.params.userID).first();
+		}).then(function(data)
+		{
+			if(!data || data.get('itemCount') <= 0)
+			{
+				return AV.Promise.error('道具不足,无法使用!');
+			}
+
+			var nAttackType = parseInt(Math.random()*10)%5;
+			var items = {'46':[52, 52, 50, 50, 49], '47':[53, 53, 51, 51, 22], '48':[26, 26, 27, 27, 23]};
+			if(item > 45 && item < 49)
+			{
+				if(data.get('itemCount') < 20)
+				{
+					return AV.Promise.error('道具不足,无法使用!');
+				}
+				newItem = items[item][nAttackType];
+				if(data.get('itemCount') == 20)
+				{
+					data.destroy();
+				}
+				else
+				{
+					data.increment('itemCount', -20);
+					saveObj.push(data);
+				}
+				return new AV.Query('package').equalTo('userID', req.params.userID).equalTo('itemID',newItem).first();
+			}
+			else if(item == 25 || item == 28)
+			{
+				if(data.get('itemCount') <= 0)
+				{
+					data.destroy();
+					return AV.Promise.error('道具不足,无法使用!');
+				}
+				else if(data.get('itemCount') == 1)
+				{
+					data.destroy();
 				}
 				else 
 				{
-					count += 2;
-					data.increment('itemCount', petGift[item.toString()]['itemCount']);
+					saveObj.push(data);
+					data.increment('itemCount', -1);
+				}
+				return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
+			}
+			else
+			{
+				//data.increment('itemCount', -1);
+				data.destroy();
+				saveObj.push(data);
+				return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
+			}
+		}).then(function(data)
+		{
+			//开启宝箱
+			if(newItem < 0)
+			{
+				if(!data)
+				{
+					return AV.Promise.error('查询失败!');
+				}
+				var level = (item - 29) * 10;
+				if(data.get('petReword') > level)
+				{
+					
+					return AV.Promise.error('你已经领取过礼包了!');
+				}
+				data.increment('goldNum', petGift[item]['goldNum']);
+				data.increment('goldMax', petGift[item]['goldMax']);
+				data.increment('Diamond', petGift[item]['diamond']);
+				data.set('petReword', level+10);
+				saveObj.push(data);
+				return new AV.Query('package').equalTo('userID', req.params.userID).containedIn('itemID', 
+					[item+1, petGift[item.toString()]['item']]).find();
+			}
+			else if(item == 25 || item == 28)
+			{
+				meili = Math.random() * 1000;
+				if(item == 28)
+				{
+					meili *= 10;
+				}
+				data.increment('beLikedNum', meili);
+				saveObj.push(data);
+				return AV.Object.saveAll(saveObj);
+			}
+			else
+			{
+				if(data)
+				{
+					data.increment('itemCount', 1);
 					saveObj.push(data);
 				}
+				else
+				{
+					var obj = new package();
+					obj.set('itemID', newItem);
+					obj.set('itemCount', 1);
+					obj.set('userID', req.params.userID);
+					saveObj.push(obj);
+				}
+				return AV.Object.saveAll(saveObj);
 			}
-			if((count == 2 || count == 0) && item < 38)
+		}).then(function(results)
+		{
+			if(newItem > 0)
 			{
-				var obj = new package();
-				obj.set('itemID', item+1);
-				obj.set('itemCount', 1);
-				obj.set('userID', req.params.userID);
-				saveObj.push(obj);
+				res.success({'itemID':newItem,'charm':meili});
+				return AV.Promise.error('success');
 			}
-			if(count == 0 || count == 1)
+			else
 			{
-				var obj = new package();
-				obj.set('itemCount', petGift[item.toString()]['itemCount']);
-				obj.set('itemID', petGift[item.toString()]['item']);
-				obj.set('userID', req.params.userID);
-				saveObj.push(obj);
+				
+				var count = 0;
+				for (var i = results.length - 1; i >= 0; i--) {
+					var data = results[i];
+					if(data.get('itemID') == newItem)
+					{
+						count+= 1;
+					}
+					else 
+					{
+						count += 2;
+						data.increment('itemCount', petGift[item.toString()]['itemCount']);
+						saveObj.push(data);
+					}
+				}
+				if((count == 2 || count == 0) && item < 38)
+				{
+					var obj = new package();
+					obj.set('itemID', item+1);
+					obj.set('itemCount', 1);
+					obj.set('userID', req.params.userID);
+					saveObj.push(obj);
+				}
+				if(count == 0 || count == 1)
+				{
+					var obj = new package();
+					obj.set('itemCount', petGift[item.toString()]['itemCount']);
+					obj.set('itemID', petGift[item.toString()]['item']);
+					obj.set('userID', req.params.userID);
+					saveObj.push(obj);
+				}
+				return AV.Object.saveAll(saveObj);
 			}
-			return AV.Object.saveAll(saveObj);
-		}
-	}).then(function(success)
-	{
-		if(newItem > 0)
+		}).then(function(success)
 		{
-			res.success({'itemID':newItem});
-		}else
+			if(newItem > 0)
+			{
+				res.success({'itemID':newItem});
+			}else
+			{
+				res.success({'itemID':petGift[item.toString()]['item'], 'itemCount':petGift[item.toString()]['itemCount']});
+			}
+		}).catch(function(error)
 		{
-			res.success({'itemID':petGift[item.toString()]['item'], 'itemCount':petGift[item.toString()]['itemCount']});
-		}
-	}).catch(function(error)
-	{
-		if(error == 'success')
-		{
-			return;
-		}
-		res.error(error);
-	})
-});
+			if(error == 'success')
+			{
+				return;
+			}
+			res.error(error);
+		})
+	});
 });
 
 AV.Cloud.define('clientHeart', function(req, response)

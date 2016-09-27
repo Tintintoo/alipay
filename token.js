@@ -172,7 +172,8 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 	var code = request.params.code;
 	var type = request.params.type;
 	var userID = -1;
-	redisClient.incr('phone:'+phoneNumber, function(err, id){
+	redisClient.incr('phone:'+phoneNumber, function(err, id)
+	{
 		redisClient.expire('phone:'+phoneNumber, 2);
 		if(id > 1)
 		{
@@ -624,128 +625,126 @@ AV.Cloud.define('increaseGold', function(request, response)
 		}
 
 		var shareInfo;
-	return redisClient.getAsync('token:' + userID).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-				//评价人的令牌与userid不一致
-			if (global.isReview == 0)
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
+					//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
 			}
-		}
-		if(tag == 1)
-		{
-			return new AV.Query('shareInfoTable').equalTo('shareID', value).first();
-		}
-		else
-		{
-			return AV.Promise.as('success');
-		}
-
-	}).then(function(data)
-	{
-		if(tag == 1)
-		{
-			gold = -1 * data.get('goldSendRest');
-			shareInfo = data;
-		}
-		else if(tag == 2)
-		{
-			gold = -100;
-		}
-		else if(tag == 3)
-		{
-			gold = -1000;
-		}
-		else if(tag == 4)
-		{
-			gold = -100;
-		}
-		else if(tag == 5)
-		{
-			gold = 100;
-		}
-		else if(tag == 6)
-		{
-			gold = 100;
-			goldMax = 100;
-		}
-		else if(tag == 7)
-		{
-			gold = -10;
-		}
-		else if(tag == 8)
-		{
-			gold = -20;
-		}
-		else if(tag == 9)
-		{
-			gold = -2000;
-		}
-		else if(tag == 11)
-		{
-			gold = 200;
-		}
-		else if(tag == 12)
-		{
-			gold = 100;
-		}
-		else if(tag == 13)
-		{
-			gold = 50;
-		}
-		else if(tag == 14)
-		{
-			gold = -50;
-		}
-		return new AV.Query('chatUsers').equalTo('userID', userID).first();
-	}).then(function(data)
-	{
-		if(tag == 2 && data.get('sex') == 2)
-		{
-			gold = -50;
-		}
-		if(tag == 10)
-		{
-			gold = vip[common.getVipType(data.get('BonusPoint'))];
-		}
-		if(gold < 0 && data.get('goldNum') < gold)
-		{
-			return AV.Promise.error('金币不足!');
-		}
-		data.increment('goldNum', gold);
-		if(goldMax > 0)
-		{
-			data.increment('goldMax', goldMax);
-		}
-		if(gold < 0)
-		{
-			data.increment('useGold', -1*gold);
-			if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
+			if(tag == 1)
 			{
-				data.increment('dailyUseGold', -1*gold);
+				return new AV.Query('shareInfoTable').equalTo('shareID', value).first();
 			}
-			else{
-				data.set('dailyUseGold', -1*gold);
+			else
+			{
+				return AV.Promise.as('success');
 			}
-			data.set('dailyUseGoldAt', new Date());
-		}
-		return data.save();
-	}).then(function(success)
-	{
-		response.success({'gold':gold});
-	}).catch(function(error)
-	{
-		if(shareInfo)
-		{
-			shareInfo.destroy();
-		}
-		response.error(error);
-	});
 
+		}).then(function(data)
+		{
+			if(tag == 1)
+			{
+				gold = -1 * data.get('goldSendRest');
+				shareInfo = data;
+			}
+			else if(tag == 2)
+			{
+				gold = -100;
+			}
+			else if(tag == 3)
+			{
+				gold = -1000;
+			}
+			else if(tag == 4)
+			{
+				gold = -100;
+			}
+			else if(tag == 5)
+			{
+				gold = 100;
+			}
+			else if(tag == 6)
+			{
+				gold = 100;
+				goldMax = 100;
+			}
+			else if(tag == 7)
+			{
+				gold = -10;
+			}
+			else if(tag == 8)
+			{
+				gold = -20;
+			}
+			else if(tag == 9)
+			{
+				gold = -2000;
+			}
+			else if(tag == 11)
+			{
+				gold = 200;
+			}
+			else if(tag == 12)
+			{
+				gold = 100;
+			}
+			else if(tag == 13)
+			{
+				gold = 50;
+			}
+			else if(tag == 14)
+			{
+				gold = -50;
+			}
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if(tag == 2 && data.get('sex') == 2)
+			{
+				gold = -50;
+			}
+			if(tag == 10)
+			{
+				gold = vip[common.getVipType(data.get('BonusPoint'))];
+			}
+			if(gold < 0 && data.get('goldNum') < gold)
+			{
+				return AV.Promise.error('金币不足!');
+			}
+			data.increment('goldNum', gold);
+			if(goldMax > 0)
+			{
+				data.increment('goldMax', goldMax);
+			}
+			if(gold < 0)
+			{
+				data.increment('useGold', -1*gold);
+				if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
+				{
+					data.increment('dailyUseGold', -1*gold);
+				}
+				else{
+					data.set('dailyUseGold', -1*gold);
+				}
+				data.set('dailyUseGoldAt', new Date());
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({'gold':gold});
+		}).catch(function(error)
+		{
+			if(shareInfo)
+			{
+				shareInfo.destroy();
+			}
+			response.error(error);
+		});
 	});
-	
 });
 
 AV.Cloud.define('IncreaseSilver', function(request, response)
