@@ -1935,7 +1935,7 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		return new AV.Query('package').equalTo('userID', request.params.userID).find();
 	}).then(function(results)
 	{
-		var data = null;
+		var data = undefined;
 		for (var i = results.length - 1; i >= 0; i--) {
 			if(results[i].get('itemID') == itemID)
 			{
@@ -1951,7 +1951,6 @@ AV.Cloud.define('useChestBatch', function(request, response)
 		{
 			count = 20;
 		}
-		
 		
 		if(itemID > 11 && itemID < 15)//批量使用道具,累加所有增长
 		{

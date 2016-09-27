@@ -211,7 +211,9 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 					return obj.save();
 				}
 				else 
+				{
 					return AV.Promise.error('数据库出错!');
+				}
 			}
 			if(type == 1)
 			{
@@ -1885,7 +1887,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 	var type = request.params.type;
 	var lover = -1;
 	var now = new Date();
-	if(type != 1 || type != 0)
+	if(type != 1 && type != 0)
 	{
 		return response.error('参数错误!');
 	}
