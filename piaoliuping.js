@@ -207,7 +207,6 @@ var clearEmptyImg = setInterval(function()
  }, 7200000);
 var clearIntallation = setInterval(function()
 {
-	clearInterval(clearIntallation);
 	var query = new AV.Query('_Installation');
 	query.containsAll('channels', ['199']);
 	query.limit(1000);
@@ -215,7 +214,7 @@ var clearIntallation = setInterval(function()
 	{
 		AV.Object.destroyAll(results);
 	})
-}, 1000);
+}, 3600000);
 function checkPetGmabline()
 {
 	var query = new AV.Query('petGamblingLog');
