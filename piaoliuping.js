@@ -131,11 +131,16 @@ AV.Cloud.define('createGameRoom', function(request, response)
     
 });
 //挑战异常检测
+var timerCount = 0;
  var timer = setInterval(function() 
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
- 		checkUserError();
+ 		timerCount ++;
+ 		if(timerCount %10 == 0)
+ 		{
+ 			checkUserError();
+ 		}
  		//clearInterval(timer);
  		return;
  	}
@@ -185,7 +190,6 @@ function checkUserError()
 	console.log('定时删除shareImg错误！');
 	var query = new AV.Query('shareImg');
 	query.limit(1000);
-	query.skip(skip);
 	query.descending('createdAt');
 	query.find().then(function(results)
 	{
