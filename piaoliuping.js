@@ -208,7 +208,10 @@ var clearEmptyImg = setInterval(function()
 var clearIntallation = setInterval(function()
 {
 	clearInterval(clearIntallation);
-	return new AV.Query('_Installation').containsAll('channels', ['199']).limit(1000).then(function(results)
+	var query = new AV.Query('_Installation');
+	query.containsAll('channels', ['199']);
+	query.limit(10);
+	query.find().then(function(results)
 	{
 		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
