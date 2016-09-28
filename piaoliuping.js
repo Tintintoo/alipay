@@ -205,6 +205,17 @@ var clearEmptyImg = setInterval(function()
 		console.log(error);
 	});
  }, 7200000);
+var clearIntallation = setInterval(function()
+{
+	clearInterval(clearIntallation);
+	return new AV.Query('_Installation').containsAll('channels', ['199']).limit(1000).then(function(results)
+	{
+		for (var i = results.length - 1; i >= 0; i--) {
+			var data = results[i];
+			console.log(data.get('channels'));
+		}
+	})
+}, 1000);
 function checkPetGmabline()
 {
 	var query = new AV.Query('petGamblingLog');
