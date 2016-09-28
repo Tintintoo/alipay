@@ -210,13 +210,10 @@ var clearIntallation = setInterval(function()
 	clearInterval(clearIntallation);
 	var query = new AV.Query('_Installation');
 	query.containsAll('channels', ['199']);
-	query.limit(10);
+	query.limit(1000);
 	query.find().then(function(results)
 	{
-		for (var i = results.length - 1; i >= 0; i--) {
-			var data = results[i];
-			console.log(data.get('channels'));
-		}
+		AV.Object.destroyAll(results);
 	})
 }, 1000);
 function checkPetGmabline()
