@@ -1035,7 +1035,7 @@ AV.Cloud.define('saveLandLog', function(request, response)
   object.set('hack', request.params.hack);
   object.set('clientToken', token);
   object.set('UUID', uuid);
-  redisClient.getAsync('token:'+userid).then(function(cache)
+  redisClient.getAsync('token:'+ request.params.userID).then(function(cache)
   {
   	if(cache)
   	{
