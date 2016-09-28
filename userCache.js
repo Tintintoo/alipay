@@ -484,37 +484,37 @@ AV.Cloud.define('joinLoverWorld', function(request, response)
       //评价人的令牌与userid不一致
       if (global.isReview == 0)
       {
-        return AV.Promise.error({error:'访问失败!'});
+        return response.error('访问失败!');
       }
     }
-    return redisClient.getAsync(array[0]);
-  }).then(function(info)
-  {
-    var data = {'other':0, 'intimacy':0, 'theme':0, 'hastheme':[0]};
-    if (info) 
+    redisClient.getAsync(array[0]).then(function(info)
     {
-      data = JSON.parse(info);
-      if(data.other > 0)
+      var data = {'other':0, 'intimacy':0, 'theme':0, 'hastheme':[0]};
+      if (info) 
       {
-        return response.error('error');
-      }
-    }
-    data.other  = otherID;
-    redisClient.getAsync(array[1]).then(function(info)
-    {
-      var data2 = {'other': 0, 'intimacy':0, 'theme':0, 'hastheme':[0]};
-      if(info)
-      {
-        data2 = JSON.parse(info);
-        if(data2.other >0)
+        data = JSON.parse(info);
+        if(data.other > 0)
         {
           return response.error('error');
         }
       }
-      data2.other = userID;
-      redisClient.setAsync(array[0], JSON.stringify(data));
-      redisClient.setAsync(array[1], JSON.stringify(data2));
-      return response.success('success');
+      data.other  = otherID;
+      redisClient.getAsync(array[1]).then(function(info)
+      {
+        var data2 = {'other': 0, 'intimacy':0, 'theme':0, 'hastheme':[0]};
+        if(info)
+        {
+          data2 = JSON.parse(info);
+          if(data2.other >0)
+          {
+            return response.error('error');
+          }
+        }
+        data2.other = userID;
+        redisClient.setAsync(array[0], JSON.stringify(data));
+        redisClient.setAsync(array[1], JSON.stringify(data2));
+        return response.success('success');
+      });
     });
   }).catch(response.error);
 });
@@ -543,95 +543,95 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
       //评价人的令牌与userid不一致
       if (global.isReview == 0)
       {
-        return AV.Promise.error({error:'访问失败!'});
+        return response.error('访问失败!');
       }
     }
-    return redisClient.getAsync(LoverWorldKey(request.params.userID))
-  }).then(function(info)
-  {
-    if(info)
+    redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
     {
-      var data = JSON.parse(info);
-      data.theme = request.params.theme;
-      var hastheme = false;
-      for (var i = data.hastheme.length - 1; i >= 0; i--)
-       {
-        if (data.hastheme[i] == request.params.theme)
-        {
-          hastheme = true;
+      if(info)
+      {
+        var data = JSON.parse(info);
+        data.theme = request.params.theme;
+        var hastheme = false;
+        for (var i = data.hastheme.length - 1; i >= 0; i--)
+         {
+          if (data.hastheme[i] == request.params.theme)
+          {
+            hastheme = true;
+          }
         }
-      }
-      if(hastheme == false)
-      {
-          new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(obj)
-          {
-            if(!obj)
+        if(hastheme == false)
+        {
+            new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(obj)
             {
-              return AV.Promise.error('ere');
-            }
-            log.set('userid', obj.get('userID'));
-            log.set('des', '购买二人世界主题');
-            log.set('diamondBefore', obj.get('Diamond'));
-            var diamond = 0;
-            if(request.params.theme == 1)
-            {
-              diamond = 200;
-            }
-            else if(request.params.theme == 2)
-            {
-             diamond = 500;
-            }
-            else if(request.params.theme == 3)
-            {
-              diamond = 1000;
-            }
-            if(obj.get('Diamond') < diamond)
-            {
-              return AV.Promise.error('error');
-            }
-
-            obj.increment('Diamond',-1 * diamond);
-            obj.fetchWhenSave(true);
-            return obj.save();
-          }).then(function(obj)
-          {
-            log.set('diamondAfter', obj.get('Diamond'));
-            log.save();
-            response.success("更换成功!");
-
-            data.hastheme.push(request.params.theme);
-            redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
-            redisClient.getAsync(LoverWorldKey(data.other)).then(function(info){
-              if(info)
+              if(!obj)
               {
-                var other = JSON.parse(info);
-                other.theme = request.params.theme;
-                //对方只更换背景,而非购买背景,只有自己拥有背景,对方可以享用背景
-                redisClient.setAsync(LoverWorldKey(data.other), JSON.stringify(other));
+                return AV.Promise.error('ere');
               }
+              log.set('userid', obj.get('userID'));
+              log.set('des', '购买二人世界主题');
+              log.set('diamondBefore', obj.get('Diamond'));
+              var diamond = 0;
+              if(request.params.theme == 1)
+              {
+                diamond = 200;
+              }
+              else if(request.params.theme == 2)
+              {
+               diamond = 500;
+              }
+              else if(request.params.theme == 3)
+              {
+                diamond = 1000;
+              }
+              if(obj.get('Diamond') < diamond)
+              {
+                return AV.Promise.error('error');
+              }
+
+              obj.increment('Diamond',-1 * diamond);
+              obj.fetchWhenSave(true);
+              return obj.save();
+            }).then(function(obj)
+            {
+              log.set('diamondAfter', obj.get('Diamond'));
+              log.save();
+              response.success("更换成功!");
+
+              data.hastheme.push(request.params.theme);
+              redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
+              redisClient.getAsync(LoverWorldKey(data.other)).then(function(info){
+                if(info)
+                {
+                  var other = JSON.parse(info);
+                  other.theme = request.params.theme;
+                  //对方只更换背景,而非购买背景,只有自己拥有背景,对方可以享用背景
+                  redisClient.setAsync(LoverWorldKey(data.other), JSON.stringify(other));
+                }
+              });
+            }).catch(function(error)
+            {
+              log.save();
+              //response.error('失败!');
             });
-          }).catch(function(error)
-          {
-            log.save();
-            //response.error('失败!');
+        }
+        else
+        {
+          redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
+          redisClient.getAsync(LoverWorldKey(data.other)).then(function(info){
+            if(info)
+            {
+             var other = JSON.parse(info);
+             other.theme = request.params.theme;
+                  //对方只更换背景,而非购买背景,只有自己拥有背景,对方可以享用背景
+              redisClient.setAsync(LoverWorldKey(data.other), JSON.stringify(other));
+           }
           });
+          response.success('success');
+        }
+        
       }
-      else
-      {
-        redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
-        redisClient.getAsync(LoverWorldKey(data.other)).then(function(info){
-          if(info)
-          {
-           var other = JSON.parse(info);
-           other.theme = request.params.theme;
-                //对方只更换背景,而非购买背景,只有自己拥有背景,对方可以享用背景
-            redisClient.setAsync(LoverWorldKey(data.other), JSON.stringify(other));
-         }
-        });
-        response.success('success');
-      }
-      
-    }
+    });
   }).catch(response.error);
 });
 AV.Cloud.define('delLoverWorldInfo', function(request, response)
@@ -642,41 +642,41 @@ AV.Cloud.define('delLoverWorldInfo', function(request, response)
     {
       if(global.isReview == 0)
       {
-        return AV.Promise.error('访问失败!');
+        return response.error('访问失败!');
       }
     }
-    return redisClient.getAsync(LoverWorldKey(request.params.userID));
-  }).then(function(info)
-  {
-    if(info)
+    redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
     {
-      var data = JSON.parse(info);
-      var key2 = LoverWorldKey(data.other);
-      data.theme = 0;
-      data.other = 0;
-      data.intimacy = 0;
-      redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
-      return redisClient.getAsync(key2);//.catch(response.error);
-    }
-    else
-    {
-      return AV.Promise.error('解除失败!');
-    }
-  }).then(function(info)
-  {
-    if(info)
-    {
-      var data = JSON.parse(info);
-      data.theme = 0;
-      data.other = 0;
-      data.intimacy = 0;
-      redisClient.setAsync(key2, JSON.stringify(data));
-      response.success('解除成功!');
-    }
-    else
-    {
-      response.error('解除失败!');
-    }
+      if(info)
+      {
+        var data = JSON.parse(info);
+        var key2 = LoverWorldKey(data.other);
+        data.theme = 0;
+        data.other = 0;
+        data.intimacy = 0;
+        redisClient.setAsync(LoverWorldKey(request.params.userID), JSON.stringify(data));
+        redisClient.getAsync(key2).then(function(info)
+        {
+          if(info)
+          {
+            var data = JSON.parse(info);
+            data.theme = 0;
+            data.other = 0;
+            data.intimacy = 0;
+            redisClient.setAsync(key2, JSON.stringify(data));
+            response.success('解除成功!');
+          }
+          else
+          {
+            response.error('解除失败!');
+          }
+        });//.catch(response.error);
+      }
+      else
+      {
+        return response.error('解除失败!');
+      }
+    });
   }).catch(response.error);
 });
 
@@ -690,7 +690,7 @@ AV.Cloud.define('sendLoverWorldMessage', function(request, response)
       //评价人的令牌与userid不一致
       if (global.isReview == 0)
       {
-        return AV.Promise.error({error:'访问失败!'});
+        return AV.Promise.error('访问失败!');
       }
     }
     return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first();
