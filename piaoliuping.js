@@ -2288,7 +2288,7 @@ AV.Cloud.define('clientHeart', function(req, response)
      	 //评价人的令牌与userid不一致
      		if (global.isReview == 0)
      		{
-     	  		return AV.Promise.error({error:'token'});
+     	  		return AV.Promise.error('token');
      	 	}
     	}
 		return redisClient.getAsync(clientKey(userID));

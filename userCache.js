@@ -23,16 +23,16 @@ return 'object';
 //查询user表 一组用户查询失败
 AV.Cloud.define('getUserInfo',function(request, response)
 {
-	var userIds = request.params.userID;
+	var userID = request.params.userID;
   var retData = new Array();
-  if(IsArray(userIds) == 'object')
-  {
-    fetchUserFromCache(userIds, response,'chatUsers');
-  }
-  else//一组用户超时
-  {
+  //if(IsArray(userIds) == 'object')
+  //{
+    fetchUserFromCache(userID, response,'chatUsers');
+ // }
+ // else//一组用户超时
+ // {
     //response.success(fetchUsersFromCache(userIds));
-  }
+//  }
   
 	/* 从缓存中读取一个 User, 如果没有找到则从云存储中查询 */
 	
