@@ -23,7 +23,7 @@ return 'object';
 //查询user表 一组用户查询失败
 AV.Cloud.define('getUserInfo',function(request, response)
 {
-	var userIds = request.params.userid;
+	var userIds = request.params.userID;
   var retData = new Array();
   if(IsArray(userIds) == 'object')
   {
@@ -477,8 +477,18 @@ AV.Cloud.define('joinLoverWorld', function(request, response)
   var userID = request.params.userID;
   var otherID = request.params.otherID;
   var array = [LoverWorldKey(userID), LoverWorldKey(otherID)];
-
-  redisClient.getAsync(array[0]).then(function(info)
+  return redisClient.getAsync('token:' + userID).then(function(cache)
+  {
+    if(!cache || cache != request.params.token)
+    {
+      //评价人的令牌与userid不一致
+      if (global.isReview == 0)
+      {
+        return AV.Promise.error({error:'访问失败!'});
+      }
+    }
+    return redisClient.getAsync(array[0]);
+  }).then(function(info)
   {
     var data = {'other':0, 'intimacy':0, 'theme':0, 'hastheme':[0]};
     if (info) 
@@ -508,7 +518,8 @@ AV.Cloud.define('joinLoverWorld', function(request, response)
     });
   }).catch(response.error);
 });
-AV.Cloud.define('getLoverWorldInfo', function(request, response){
+AV.Cloud.define('getLoverWorldInfo', function(request, response)
+{
   return redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
   {
     if(info)
@@ -525,7 +536,18 @@ AV.Cloud.define('getLoverWorldInfo', function(request, response){
 AV.Cloud.define('changeLoverWorldTheme', function(request, response)
 {
   var log = new global.moneyLog();
-  redisClient.getAsync(LoverWorldKey(request.params.userID)).then(function(info)
+  return redisClient.getAsync('token:' + userID).then(function(cache)
+  {
+    if(!cache || cache != request.params.token)
+    {
+      //评价人的令牌与userid不一致
+      if (global.isReview == 0)
+      {
+        return AV.Promise.error({error:'访问失败!'});
+      }
+    }
+    return redisClient.getAsync(LoverWorldKey(request.params.userID))
+  }).then(function(info)
   {
     if(info)
     {
@@ -657,8 +679,22 @@ AV.Cloud.define('delLoverWorldInfo', function(request, response)
     }
   }).catch(response.error);
 });
-AV.Cloud.define('sendLoverWorldMessage', function(request, response){
-  return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first().then(function(data)
+
+AV.Cloud.define('sendLoverWorldMessage', function(request, response)
+{
+  var userID = request.params.userID;
+  return redisClient.getAsync('token:' + userID).then(function(cache)
+  {
+    if(!cache || cache != request.params.token)
+    {
+      //评价人的令牌与userid不一致
+      if (global.isReview == 0)
+      {
+        return AV.Promise.error({error:'访问失败!'});
+      }
+    }
+    return new AV.Query('chatUsers').equalTo('userID', request.params.userID).first();
+  }).then(function(data)
   {
     if(data.get('goldNum') < 100)
     {

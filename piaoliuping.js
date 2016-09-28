@@ -2281,7 +2281,18 @@ AV.Cloud.define('clientHeart', function(req, response)
 {
 	var userID = req.params.userID;
 	var version = req.params.version;
-	redisClient.getAsync(clientKey(userID)).then(function(cache)
+	redisClient.getAsync('token:' + userID).then(function(cache)
+  	{
+    	if(!cache || cache != request.params.token)
+    	{
+     	 //评价人的令牌与userid不一致
+     		if (global.isReview == 0)
+     		{
+     	  		return AV.Promise.error({error:'token'});
+     	 	}
+    	}
+		return redisClient.getAsync(clientKey(userID));
+	}).then(function(cache)
 	{
 		if(cache)
 		{
