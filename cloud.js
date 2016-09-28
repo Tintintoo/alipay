@@ -278,19 +278,19 @@ function getProductInfo(identify)
 {
   if(identify == 'com.starfire.intheworld.goldNum100')
   {
-   return {goldNum:100,goldMax:100, money:1};
+   return {goldNum:500,goldMax:100, money:1};
   }
   else if(identify == 'com.starfire.intheworld.gold1500')
   {
-    return {goldNum:1500, goldMax:1500, money:12};
+    return {goldNum:7500, goldMax:1500, money:12};
   }
   else if(identify == 'com.starfire.intheworld.gold8000')
   {
-    return {goldNum:8000, goldMax:8000, money:68};
+    return {goldNum:40000, goldMax:8000, money:68};
   }
   else if(identify == 'com.starfire.intheworld.gold600')
   {
-    return {goldNum:600, goldMax:600, money:6};
+    return {goldNum:3000, goldMax:600, money:6};
   }
   else if(identify == 'com.starfire.intheworld.diamond6')
   {
@@ -344,7 +344,7 @@ AV.Cloud.define('payCheck', function(request, response)
           return response.error('用户读取失败!');
         }
         var increase = vip[common.getVipType(data.get('BonusPoint'))];
-        goldNum = parseInt(goldNum*increase);
+        goldNum = parseInt(goldNum * increase);
         Diamond = parseInt(Diamond * increase);
         goldMax = parseInt(goldMax * increase);
         data.increment('goldNum', goldNum);
@@ -403,7 +403,7 @@ AV.Cloud.define('payCheck', function(request, response)
           return response.error('用户读取失败!');
         }
         var increase = vip[common.getVipType(data.get('BonusPoint'))];
-        goldNum = parseInt(goldNum*increase);
+        goldNum = parseInt(goldNum * increase);
         Diamond = parseInt(Diamond * increase);
         goldMax = parseInt(goldMax * increase);
         data.increment('goldNum', goldNum);
