@@ -977,7 +977,7 @@ AV.Cloud.define('silverChange', function(request, response)
 	var req = reqCount();
 	redisClient.incr(key, function(error, id)
 	{
-		if(err || id > 1)
+		if(error || id > 1)
 		{
 			return response.error("兑换冷却中(每次兑换需要间隔6个小时)!");
 		}
