@@ -536,6 +536,7 @@ AV.Cloud.define('getLoverWorldInfo', function(request, response)
 AV.Cloud.define('changeLoverWorldTheme', function(request, response)
 {
   var log = new global.moneyLog();
+  var userID = request.params.userID;
   return redisClient.getAsync('token:' + userID).then(function(cache)
   {
     if(!cache || cache != request.params.token)
