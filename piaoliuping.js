@@ -31,7 +31,7 @@ global.giftInfo = {};
 var seedrandom = require('seedrandom');
 
 //是否在审核状态,审核状态不做处理
-global.isReview = 1;
+global.isReview = 0;
 
 common.initGiftInfo();
 
