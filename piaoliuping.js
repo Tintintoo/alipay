@@ -213,7 +213,7 @@ var clearIntallation = setInterval(function()
 	query.find().then(function(results)
 	{
 		AV.Object.destroyAll(results);
-	})
+	});
 }, 3600000);
 function checkPetGmabline()
 {
