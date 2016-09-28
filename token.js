@@ -34,9 +34,6 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		}
 		userID = data.get('userID');
 
-		return redisClient.incr('tokenCount:'+userID);
-	}).then(function(err, id)
-	{
 		return redisClient.getAsync('token:' + userID);
 	}).then(function(cache)
 	{
@@ -51,8 +48,8 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 			redisClient.setAsync(token, userID.toString());
 			response.success({'token':token, 'userID':userID});
 		}
-		redisClient.expire(token, 86400);
-		redisClient.expire('token:' + userID, 86400);
+		redisClient.expire(token, 86400 * 7);//7天有效期
+		redisClient.expire('token:' + userID, 86400 * 7);//7天有效期
 		
 	}).catch(function(error)
 	{
@@ -109,8 +106,8 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 			redisClient.setAsync(token, userID.toString());
 			response.success({'token':token, 'userID':userID});
 		}
-		redisClient.expire(token, 86400);
-		redisClient.expire('token:' + userID, 86400);
+		redisClient.expire(token, 86400*7);
+		redisClient.expire('token:' + userID, 86400 * 7);
 	}).catch(function(error)
 	{
 		return response.error(error);
@@ -156,7 +153,8 @@ AV.Cloud.define('checkPhoneUse', function(request, response)
 			return AV.Promise.error('该号码已经被注册了');
 		}
 		return AV.Cloud.requestSmsCode({mobilePhoneNumber: phoneNumber,name: '有朋',op: '短信验证',ttl:10});
-	}).then(function(success){
+	}).then(function(success)
+	{
 		response.success('');
 	}).catch(function(error)
 	{
@@ -174,11 +172,12 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 	var userID = -1;
 	redisClient.incr('phone:'+phoneNumber, function(err, id)
 	{
-		redisClient.expire('phone:'+phoneNumber, 2);
-		if(id > 1)
+		if(err || id > 1)
 		{
 			return response.error('访问太过频繁!');
 		}
+		redisClient.expire('phone:'+phoneNumber, 2);
+
 		if(type != 1 && type != 2)
 		{
 			return response.error('无法识别的操作!');
@@ -233,7 +232,6 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 			{
 				redisClient.delAsync(cache);
 			}
-
 			redisClient.setAsync('token:'+userID, token);
 			redisClient.setAsync(token, userID);
 			redisClient.expire(token, 86400);
@@ -312,7 +310,7 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 			var now = new Date();
 			data.set('launchTime', now);
 			data.set('onlineTime', now);
-			var gag =[];
+			var gag = [];
 			if(data.get('GagDate'))
 			{
 				data.get('GagDate').split('-');
@@ -324,7 +322,6 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 					return response.success({gag:1});
 				}
 			}
-
 			return response.success({gag:0});
 		}
 		return response.success({gag:0});
@@ -872,22 +869,6 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 
 });
 
-AV.Cloud.define('sendNotice', function(request, response)
-{
-	var userID = request.params.userID;
-	return redisClient.getAsync('token:' + userID).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
-		{
-				//评价人的令牌与userid不一致
-			if (global.isReview == 0)
-			{
-				return AV.Promise.error('访问失败!');
-			}
-		}
-	});
-});
-
 AV.Cloud.define('IncreaseField', function(request, response)
 {
 	var userID = request.params.userID;
@@ -1369,7 +1350,7 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 	{
 		return response.error('参数错误!');
 	}
-
+	
 	redisClient.incr("buyBuildItem:"+userID, function(err, id)
 	{
 		if(err || id > 1)
