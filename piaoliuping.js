@@ -131,17 +131,11 @@ AV.Cloud.define('createGameRoom', function(request, response)
     
 });
 //挑战异常检测
-var timerCount = 0;
  var timer = setInterval(function() 
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
- 		timerCount ++;
- 		if(timerCount %10 == 0)
- 		{
- 			checkUserError();
- 		}
- 		//clearInterval(timer);
+ 		clearInterval(timer);
  		return;
  	}
  	checkPetGmabline();
@@ -185,7 +179,7 @@ var checkGiftInfo = setInterval(function()
 	});
 }, 10000);
 
-function checkUserError()
+var clearEmptyImg = setInterval(function()
 {
 	console.log('定时删除shareImg错误！');
 	var query = new AV.Query('shareImg');
@@ -210,7 +204,7 @@ function checkUserError()
 	{
 		console.log(error);
 	});
- };
+ }, 7200000);
 function checkPetGmabline()
 {
 	var query = new AV.Query('petGamblingLog');
