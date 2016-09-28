@@ -310,6 +310,7 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 			var now = new Date();
 			data.set('launchTime', now);
 			data.set('onlineTime', now);
+			data.save();
 			var gag = [];
 			if(data.get('GagDate'))
 			{
@@ -1350,7 +1351,7 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 	{
 		return response.error('参数错误!');
 	}
-	
+
 	redisClient.incr("buyBuildItem:"+userID, function(err, id)
 	{
 		if(err || id > 1)
