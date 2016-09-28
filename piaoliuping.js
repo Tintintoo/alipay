@@ -2529,13 +2529,6 @@ AV.Cloud.define('delGroupActive', function(request, response)
 
 AV.Cloud.define('dealSomething', function(request, response)
 {
-	return new AV.Query('aclTest').find().then(function(results)
-	{
-		for (var i = results.length - 1; i >= 0; i--) {
-			console.log(results[i].get('MobilePhone'));
-		}
-	});
-	response.success('');
 });
 
 AV.Cloud.define('endMarriageNoGold', function(request, response)
