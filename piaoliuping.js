@@ -1041,7 +1041,7 @@ AV.Cloud.define('saveLandLog', function(request, response)
   	{
   		realToken = cache;
   	}
-  	obj.set('serverToken', realToken);
+  	object.set('serverToken', realToken);
   	object.save();
   }).catch(function(error)
   {

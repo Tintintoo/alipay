@@ -121,8 +121,8 @@ AV.Cloud.define('LogInByToken', function(request, response)
 	{
 		if(cache)//得到用户,返回
 		{
-			redisClient.expire(token, 86400);
-			redisClient.expire('token'+cache, 86400);
+			redisClient.expire(token, 86400*7);
+			redisClient.expire('token'+cache, 86400*7);
 
 			response.success(parseInt(cache));
 		}
