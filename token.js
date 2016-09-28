@@ -1420,7 +1420,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 		step += 1;
 		if(err || id > 1)
 		{
-			return response.error('访问频繁');
+			return response.error({error:'访问频繁'});
 		}
 		redisClient.expire('cultureBuilding:'+userID, 1);
 
@@ -1432,7 +1432,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 				//评价人的令牌与userid不一致
 				if (global.isReview == 0)
 				{
-					return AV.Promise.error('访问失败!');
+					return AV.Promise.error({error:'访问失败!'});
 				}
 			}
 			return new AV.Query('building').equalTo('buildingNo', request.params.buildNo).first();
