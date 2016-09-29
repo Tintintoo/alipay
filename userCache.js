@@ -1,7 +1,7 @@
 var AV = require('leanengine');
 var Promise = require('bluebird');
 var _ = require('underscore');
-var commom = require('./common');
+var common = require('./common');
 
 var router = require('express').Router();
 var redisClient = require('./redis').redisClient;
