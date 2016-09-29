@@ -722,13 +722,7 @@ AV.Cloud.define('sendLoverWorldMessage', function(request, response)
           var data = JSON.parse(info);
           data.intimacy += 1;
           redisClient.setAsync(key2, JSON.stringify(data));
-          response.success('');
-        })//.catch(response.error);
-      }
-      else
-      {
-        response.error('没查到数据!');
-        //console.log('没查到数据!');
+        });
       }
     });
   }).catch(function(error)
