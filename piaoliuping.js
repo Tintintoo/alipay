@@ -2504,9 +2504,6 @@ AV.Cloud.define('getGroupInfo', function(request, response)
         {
         	response.success([]);
         }
-	}).catch(function(error)
-	{
-		response.error('error');
 	});
 });
 

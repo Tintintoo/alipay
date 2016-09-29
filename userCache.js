@@ -23,7 +23,7 @@ return 'object';
 //查询user表 一组用户查询失败
 AV.Cloud.define('getUserInfo',function(request, response)
 {
-	var userID = request.params.userID;
+	var userID = request.params.userid;
   var retData = new Array();
   //if(IsArray(userIds) == 'object')
   //{
