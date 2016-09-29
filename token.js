@@ -707,7 +707,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 			}
 			if(tag == 10)
 			{
-				gold = vip[common.getVipType(data.get('BonusPoint'))];
+				gold = vip[data.get('VIPType')];
 			}
 			if(gold < 0 && data.get('goldNum') < gold)
 			{
@@ -1175,7 +1175,7 @@ AV.Cloud.define('DaySign', function(request, response)
 			else
 			{
 				data.set('lastQDtime', common.FormatDate(new Date()));
-				var vip = common.getVipType(data.get('BonusPoint'));
+				var vip = data.get('VIPType');
 				if(vip > 0)
 				{
 					goldVip = vip * 100;
@@ -2139,6 +2139,61 @@ AV.Cloud.define('getWeddingRedPacket', function(request, response)
 AV.Cloud.define('checkNet', function(request, response)
 {
 	return response.success('success');
+});
+
+AV.Cloud.define('JoinMembership', function(request, response)
+{
+	var userID = request.params.userID;
+	var month = request.params.month;
+	var price = {1:-20, 3:-54, 6:-102,12:-196};
+	var diamond = price[month] || 0;
+	var vipType = 0;
+	if(diamond >= 0)
+	{
+		return response.error('参数错误!');
+	}
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data){
+		if(data.get('Diamond') < -1*diamond)
+		{
+			return AV.Promise.error('钻石不足,无法开通或续费!');
+		}
+		data.increment('Diamond', diamond);
+		var vipDate = common.stringToDate(data.get('VIPDay'));
+		console.log(vipDate);
+
+		vipType = common.getVipType(data.get('BonusPoint'));
+		if(vipType == 0)
+		{
+			vipType = 1;
+		}
+		//如果是续费,无需改动
+		if(common.checkDayGreater(vipDate, new Date()))
+		{
+			data.set('VIPDay', common.FormatDate(common.addMonth(vipDate, month)));
+		}
+		else
+		{
+			data.set('VIPDay', common.FormatDate(common.addMonth(new Date(), month)));
+		}
+		data.set('VIPType', vipType);
+		return data.save();
+	}).then(function(data)
+	{
+		response.success({'diamond':diamond, 'goldNum':0,'goldMax':0,vip:vipType});
+	}).catch(function(error)
+	{
+		response.error(error);
+	});
 })
 
 module.exports = AV.Cloud;

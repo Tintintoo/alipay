@@ -1,6 +1,7 @@
 var AV = require('leanengine');
 var Promise = require('bluebird');
 var _ = require('underscore');
+var commom = require('./common');
 
 var router = require('express').Router();
 var redisClient = require('./redis').redisClient;
@@ -23,7 +24,7 @@ return 'object';
 //查询user表 一组用户查询失败
 AV.Cloud.define('getUserInfo',function(request, response)
 {
-	var userID = request.params.userid;
+	var userID = request.params.userID;
   var retData = new Array();
   //if(IsArray(userIds) == 'object')
   //{
@@ -86,6 +87,14 @@ function fetchUserFromCache(userId, response)
       obj.set('serverTimeString', new Date());
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
       response.success(obj);
+      var vipDate = common.stringToDate(obj.get('VIPDay'));
+      if(commom.checkDayGreater(new Date(), vipDate))
+      {
+         return new AV.Query('chatUsers').equalTo('userID', userId).first().then(function(user)
+         {
+          user.set('VIPType', 0);
+         });
+      }
     } 
     else 
     {
@@ -95,6 +104,12 @@ function fetchUserFromCache(userId, response)
         {
           user.set('serverTimeString', new Date());
           user.set('serverTimeSecond', Math.floor(new Date()/1000));
+          var vipDate = common.stringToDate(user.get('VIPDay'));
+          if(commom.checkDayGreater(new Date(), vipDate))
+          {
+            user.set('VIPType', 0);
+            user.save();
+          }
           response.success(user);
           redisClient.setAsync(redisUserKey(userId), JSON.stringify(user)).catch(console.error);
           return;

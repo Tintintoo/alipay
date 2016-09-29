@@ -5,6 +5,15 @@ exports.checkDaySame = function checkDaySame(date, now)
 	return date.getFullYear() == now.getFullYear() && date.getMonth() == now.getMonth() && date.getDate() == now.getDate();
 }
 
+exports.checkDayGreater = function(date, now)
+{
+    if(!date)
+    {
+        return false;
+    }
+    return date.getFullYear() >= now.getFullYear() && date.getMonth() >= now.getMonth() && date.getDate() >= now.getDate();
+}
+
 exports.initGiftInfo = function initGiftInfo()
 {
 	new AV.Query('GiftInfo').find().then(function(results)
@@ -310,5 +319,30 @@ exports.getGoldIncrease= function(type , level)
 }
 exports.stringToDate= function(value)
 {
-    return new Date(value.replace(/-/g,"/"));
+    if(!value || value.length < 9)
+    {
+       return new Date(new Date().getTime() - 86400000);
+    }
+    var date = value.replace(/-/g,"/");
+    if(date.length == 9)
+    {
+        date += ' 00:00:00';
+    }
+    return new Date(date);
+}
+
+exports.addMonth = function(date, month)
+{
+    var mon = date.getMonth();
+    var year = date.getFullYear();
+    var day = date.getDate();
+    mon += month;
+    if(mon > 11)
+    {
+        mon -= 11;
+        year += 1;
+    }
+    date.setFullYear(year);
+    date.setMonth(mon);
+    return new Date(date.getTime() - 86400000);
 }
