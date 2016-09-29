@@ -86,15 +86,18 @@ function fetchUserFromCache(userId, response)
       var obj = new AV.Object(JSON.parse(cachedUser), {parse: true});
       obj.set('serverTimeString', new Date());
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
-      response.success(obj);
+      
       var vipDate = common.stringToDate(obj.get('VIPDay'));
-      if(commom.checkDayGreater(new Date(), vipDate))
+      if(obj.get('VIPType') > 0 && common.checkDayGreater(new Date(), vipDate))
       {
+        obj.set('VIPType', 0);
          return new AV.Query('chatUsers').equalTo('userID', userId).first().then(function(user)
          {
           user.set('VIPType', 0);
+          user.save();
          });
       }
+      response.success(obj);
     } 
     else 
     {
@@ -105,7 +108,7 @@ function fetchUserFromCache(userId, response)
           user.set('serverTimeString', new Date());
           user.set('serverTimeSecond', Math.floor(new Date()/1000));
           var vipDate = common.stringToDate(user.get('VIPDay'));
-          if(commom.checkDayGreater(new Date(), vipDate))
+          if(user.get('VIPType') > 0 && common.checkDayGreater(new Date(), vipDate))
           {
             user.set('VIPType', 0);
             user.save();
