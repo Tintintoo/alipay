@@ -88,6 +88,7 @@ function fetchUserFromCache(userId, response)
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
       
       var vipDate = common.stringToDate(obj.get('VIPDay'));
+      console.log(vipDate);
       if(obj.get('VIPType') > 0 && common.checkDayGreater(new Date(), vipDate))
       {
         obj.set('VIPType', 0);
