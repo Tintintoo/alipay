@@ -11,7 +11,7 @@ exports.checkDayGreater = function(date, now)
     {
         return false;
     }
-    return date.getFullYear() >= now.getFullYear() && date.getMonth() >= now.getMonth() && date.getDate() >= now.getDate();
+    return date.getTime() > now.getTime();
 }
 
 exports.initGiftInfo = function initGiftInfo()
@@ -319,12 +319,12 @@ exports.getGoldIncrease= function(type , level)
 }
 exports.stringToDate= function(value)
 {
-    if(!value || value.length < 9)
+    if(!value || value.length <= 0)
     {
        return new Date(new Date().getTime() - 86400000);
     }
     var date = value.replace(/-/g,"/");
-    if(date.length == 9)
+    if(date.length <= 9 && date.length > 0)
     {
         date += ' 00:00:00';
     }
@@ -339,10 +339,24 @@ exports.addMonth = function(date, month)
     mon += month;
     if(mon > 11)
     {
-        mon -= 11;
+        mon -= 12;
         year += 1;
     }
     date.setFullYear(year);
     date.setMonth(mon);
     return new Date(date.getTime() - 86400000);
+}
+exports.getSignReword = function(vipType, day)
+{
+    var dayReword = [{day:1,gold:100}, {day:2,gold:150}, {day:3,gold:200, goldMax:100,diamond:5}, {day:4,gold:240}, 
+    {day:5,gold:300,goldMax:150}, {day:6,gold:350},{day:7,gold:400, goldMax:200, diamond:8},
+    {day:8,gold:500}, {day:9,gold:600}, {day:10,gold:700,goldMax:240,diamond:10},
+    {day:11,gold:800},{day:12,gold:900,goldMax:300},{day:13,gold:1000},{day:14,gold:1100},{day:15,gold:1200,diamond:20},{day:16,gold:1300},
+    {day:17,gold:1500},{day:18,gold:1600,goldMax:400},{day:19,gold:1700},{day:20,gold:2000,goldMax:450, diamond:25},
+    {day:21,gold:2100},{day:22,gold:2200},{day:23,gold:2400},{day:24,gold:2500},{day:25,gold:3000,goldMax:600,diamond:30},
+    {day:26,gold:3100},{day:27,gold:3200},{day:28,gold:3300},{day:29,gold:3400},{day:30,gold:4000,goldMax:800,diamond:40}];
+    var price = dayReword[day];
+    price['goldVip'] = Math.floor(price.gold * vipType / 10);
+    price['goldMaxVip'] = Math.floor(price.gold * vipType /100);
+    return price;
 }

@@ -88,15 +88,15 @@ function fetchUserFromCache(userId, response)
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
       
       var vipDate = common.stringToDate(obj.get('VIPDay'));
-      console.log(vipDate);
+      console.log(common.FormatDate(vipDate));
       if(obj.get('VIPType') > 0 && common.checkDayGreater(new Date(), vipDate))
       {
         obj.set('VIPType', 0);
-         return new AV.Query('chatUsers').equalTo('userID', userId).first().then(function(user)
-         {
+        new AV.Query('chatUsers').equalTo('userID', userId).first().then(function(user)
+        {
           user.set('VIPType', 0);
           user.save();
-         });
+        });
       }
       response.success(obj);
     } 

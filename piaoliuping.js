@@ -14,7 +14,7 @@ var gameRoom = AV.Object.extend('gameRoom');
 var gameRoomLog = AV.Object.extend('gameRoomLog');
 var gameErrorForbidden = AV.Object.extend('gameErrorForbidden');
 var loverLikesLog = AV.Object.extend('loverLikesLog');
-var petGamblingLog = AV.Object.extend('petGamblingLog');
+var gamblingLog = AV.Object.extend('gamblingLog');
 var auctionItems = AV.Object.extend('auctionItems');
 var package = AV.Object.extend('package');
 var sealInfo = AV.Object.extend('sealInfo');
@@ -49,7 +49,6 @@ AV.Cloud.define('createGameRoom', function(request, response)
 	{
 		if(err)
 		{
-			console.log(err);
 			return response.error('访问太过频繁!');
 		}
 		redisClient.expire(key, 2);
@@ -175,9 +174,34 @@ var checkGiftInfo = setInterval(function()
 				}
 			}
 		}
-		console.log(ids);
 	});
 }, 10000);
+
+var checkPetLog = setInterval(function()
+{
+	console.log('定时检测放生异常!');
+	//clearInterval(checkPetLog);
+
+	var query = new AV.Query('petInfoLog');
+	query.find().then(function(results)
+	{	
+		var petArray = {};
+		var userIDs = new Array();
+		for (var i = results.length - 1; i >= 0; i--) {
+			var data = results[i];
+			if (petArray[data.get('petID')] && petArray[data.get('petID')] == 1)
+			{
+				userIDs.push(data.get('userID'));
+				petArray[data.get('petID')] += 1;
+			}
+			else if(!petArray[data.get('petID')])
+			{
+				petArray[data.get('petID')] = 1;
+			}
+		}
+		console.log('放生异常'+userIDs);
+	});
+}, 60000);
 
 var clearEmptyImg = setInterval(function()
 {
@@ -435,9 +459,12 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		var placeID = 0;
 		var goldNum = 0 ;
 		var diamond = 0;
-		var log = new petGamblingLog();
+		var log = new gamblingLog();
+		var logOther = new gamblingLog();
 		var room ;
+		var gamblingCache = new Array();
 
+		gamblingCache.push({'userID':userID, 'win':0,'lose':0,'winGold':0,'loseGold':0,'winDiamond':0,'loseDiamond':0});
 		var state = '';
 		var random = seedrandom('added entropy.', { entropy: true });
 		return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
@@ -453,14 +480,16 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		}).then(function(data)
 		{
 			state += '2';
-			//console.log('第'+state+"步");
 			if(!data)
 			{
 				return AV.Promise.error('来迟一步,已经被人抢先了!');
 			}
 			otherID = data.get('userID');
+			gamblingCache.push({'userID':otherID, 'win':0,'lose':0,'winGold':0,'loseGold':0,'winDiamond':0,'loseDiamond':0});
 			gambling = data.get('gambling');
 			placeID = data.get('placeID');
+			log.set('userID', userID);
+			logOther.set('userID', otherID);
 			if(data.get('placeID') == 5)
 			{
 				diamond = data.get('gambling');
@@ -484,6 +513,7 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				{
 					win = 0;
 				}
+				log.set('win', win);
 				return new AV.Query('chatUsers').containedIn('userID', [userID, otherID]).find();
 			}
 			else
@@ -495,10 +525,12 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 		}).then(function(results)
 		{
 			state += '4';
+
 			if(results.length != 2)
 			{
 				return AV.Promise.error('查询数据有误!');
 			}
+			state += 'C';
 			for (var i = results.length - 1; i >= 0; i--) 
 			{
 				var object = results[i];
@@ -513,12 +545,14 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 						return AV.Promise.error('金币不足,加入失败!');
 					}
 				}
+				state += 'A';
 				if(win == 1)
 				{
+					logOther.set('win', 0);
 					if(object.get('userID') == userID)
 					{
-						log.set('winDiamondQ', object.get('Diamond'));
-						log.set('winGoldNumQ', object.get('goldNum'));
+						log.set('DiamondQ', object.get('Diamond'));
+						log.set('GoldNumQ', object.get('goldNum'));
 						if(diamond >0)
 						{
 							object.increment('Diamond', diamond);
@@ -531,10 +565,12 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 				}
 				else
 				{
+					state += 'B';
+					logOther.set('win', 1);
 					if(object.get('userID') == userID)
 					{
-						log.set('loseDiamondQ', object.get('Diamond'));
-						log.set('loseGoldNumQ', object.get('goldNum'));
+						log.set('DiamondQ', object.get('Diamond'));
+						log.set('GoldNumQ', object.get('goldNum'));
 						if(diamond > 0)
 						{
 							object.increment('Diamond', -1*diamond);
@@ -546,8 +582,8 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 					}
 					else
 					{
-						log.set('winDiamondQ', object.get('Diamond'));
-						log.set('winGoldNumQ', object.get('goldNum'));
+						logOther.set('DiamondQ', object.get('Diamond'));
+						logOther.set('GoldNumQ', object.get('goldNum'));
 						if(diamond > 0)
 						{
 							object.increment('Diamond', 2*diamond);
@@ -566,27 +602,67 @@ AV.Cloud.define('joinPetGameQueue', function(request, response)
 			room.destroy();
 
 			log.set('startUserid', userID);
-			if(win == 1)
-			{
-				log.set('winnerID', userID);
-				log.set('loserID', otherID);
-			}
-			else
-			{
-				log.set('winnerID', otherID);
-				log.set('loserID', userID);
-			}
 			log.set('roomID', request.params.roomID);
 			log.set('gambling', gambling);
 			log.set('placeID', placeID);
 			log.set('gameID', 3);
+			log.set('otherID', otherID);
 			log.set('goldNum', goldNum);
 			log.set('Diamond', diamond);
+
+
+			logOther.set('startUserid', userID);
+			logOther.set('roomID', request.params.roomID);
+			logOther.set('gambling', gambling);
+			logOther.set('placeID', placeID);
+			logOther.set('otherID', userID);
+			logOther.set('gameID', 3);
+			logOther.set('goldNum', goldNum);
+			logOther.set('Diamond', diamond);
+
 			log.save();
+			logOther.save();
+
 			response.success(win);
+			return redisClient.mgetAsync(['gamblingLog:'+userID, 'gamblingLog:'+otherID]);	
+		}).then(function(caches)
+		{
+			state += '7';
+			for (var i = caches.length - 1; i >= 0; i--) 
+			{
+				if (!caches[i])
+				{
+					continue;
+				}
+				var cache = JSON.parse(caches[i]);
+				for (var j = gamblingCache.length - 1; j >= 0; j--) {
+					if(cache.userID == gamblingCache[j].userID)
+					{
+						gamblingCache[j] = cache;
+					}
+				}
+			}
+			for (var i = gamblingCache.length - 1; i >= 0; i--) {
+				if(i == win)
+				{
+					gamblingCache[i].lose += 1;
+					gamblingCache[i].loseGold += goldNum;
+					gamblingCache[i].loseDiamond += diamond;
+				}
+				else
+				{
+					gamblingCache[i].win += 1;
+					gamblingCache[i].winGold += goldNum;
+					gamblingCache[i].winDiamond += diamond;
+				}
+			}
+			redisClient.setAsync('gamblingLog:'+userID, JSON.stringify(gamblingCache[0]));
+			redisClient.setAsync('gamblingLog:'+ otherID, JSON.stringify(gamblingCache[1]));
+
 		}).catch(function(error) 
 		{	
 			state += '6';
+			console.log('步骤'+state+error);
 			if(error == 'over')
 			{
 				return 'over';
@@ -1083,7 +1159,6 @@ AV.Cloud.define('sealAccount', function(request, response)
 AV.Cloud.define('checkAccount', function(request, response) 
 {
 	var uuid = request.params.uuid||'1234567';
-	console.log('LogUUID:',uuid);
 	if(uuid == 'D22DCC30-C639-4F86-9255-F0134EB58738'
 	|| uuid == 'A4A22518-5869-4010-8242-C9E7794AB831'
 	|| uuid == '6EB46823-22AB-4379-B2C4-C0558C18CA87')
