@@ -7,9 +7,11 @@ var building = AV.Object.extend('building');
 var marryUsers = AV.Object.extend('marryUsers');
 var weddingCashLog = AV.Object.extend('weddingCashLog');
 var weddingLog = AV.Object.extend('weddingLog');
+var signLog = AV.Object.extend('Log_QianDao');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
+
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -150,6 +152,7 @@ AV.Cloud.define('checkPhoneUse', function(request, response)
 {
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
+	var type = request.params.type;
 	var query1 = new AV.Query('chatUsers');
 	query1.equalTo('MobilePhone', phoneNumber);
 
@@ -160,7 +163,14 @@ AV.Cloud.define('checkPhoneUse', function(request, response)
 	{
 		if(data)
 		{
-			return AV.Promise.error('该号码已经被注册了');
+			if(type != 2)
+			{
+				return AV.Promise.error('该号码已经被注册了');
+			}
+		}
+		else if(type == 2)
+		{
+			return AV.Promise.error('该号码还未注册账号!');
 		}
 		return AV.Cloud.requestSmsCode({mobilePhoneNumber: phoneNumber,name: '有朋',op: '短信验证',ttl:10});
 	}).then(function(success)
@@ -216,7 +226,7 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 					obj.set('petReword', 10);
 					obj.set('myState', -1);
 					obj.set('MobilePhone', encodePhone);
-					data.set('Passwd', passwd);
+					obj.set('Passwd', passwd);
 					obj.fetchWhenSave(true);
 					return obj.save();
 				}
@@ -819,6 +829,11 @@ AV.Cloud.define('IncreaseSilver', function(request, response)
 
 AV.Cloud.define('harvestPetGold', function(request, response)
 {
+	if(request.params.remoteAddress == '114.254.97.89'
+		|| request.params.remoteAddress == '183.167.204.161')
+	{
+		return response.error('error');
+	}
 	var userID = request.params.userID;
 	var petID = request.params.petID;
 	var key = "harvest:" + userID;
@@ -1157,71 +1172,94 @@ AV.Cloud.define('DaySign', function(request, response)
 	var uuid = request.params.uuid;
 	var price = {};
 	var now = new Date();
-	var lastDay = 0;
-	redisClient.incr("DaySign:" + userID, function(err, id)
+	var info = {signCount:-1};
+	var lastDay = new Date(now.getTime() - 86400000);
+	var log = new signLog();
+	redisClient.incr("DaySign:" + uuid, function(err, id)
 	{
 		if(err || id > 1)
 		{
 			return response.error('访问频繁');
 		}
-		redisClient.expire('DaySign:' + userID, 60);
-		return redisClient.getAsync('token:' + userID).then(function(cache)
+		redisClient.expire('DaySign:' + uuid, 1);//60);
+
+		return redisClient.getAsync('signInfo:' + uuid).then(function(cache)
 		{	
-			if(!cache || cache != request.params.token)
+			if(cache)
 			{
-				//评价人的令牌与userid不一致
-				if (global.isReview == 0)
+				info = JSON.parse(cache);
+				if (common.checkDaySame(now, common.stringToDate(info.date)))
 				{
-					return AV.Promise.error('访问失败!');
+					response.error('签到失败,该设备已经签到过了!');
+					return AV.Promise.error('失败!');
 				}
-			}
-			return new AV.Query('chatUsers').equalTo('userID', userID).first();
-		}).then(function(data)
-		{
-			var last = new Date( data.get('lastQDtime').replace(/-/g,"/"));
-			if(last && common.checkDaySame(last, now))
-			{
-				return AV.Promise.error('已经签到过了!');
-			}
-			else
-			{
-				lastDay = data.get('serialSign');
-				//如果跟昨天是同一天,增加连续签到数量
-				if (common.checkDaySame(last, new Date(now.getTime() - 86400000)) && lastDay < 30)
+				if(common.checkDaySame(lastDay, common.stringToDate(info.date)))
 				{
-					data.increment('serialSign', 1);
+					info['signCount'] += 1;
 				}
 				else
 				{
-					data.set('serialSign', 1);
-					lastDay = 0;
+					info['signCount'] = 0;
 				}
-				data.set('lastQDtime', common.FormatDate(new Date()));
-
-				var vip = data.get('VIPType');
-				price =  common.getSignReword(vip, lastDay);
-				price.day = lastDay;
-
-				if(price.diamond && price.diamond > 0)
-				{
-					data.increment('Diamond', price.diamond);
-				}
-				if(price.gold && price.gold > 0)
-				{
-					data.increment('goldNum', price.gold + price.goldVip);
-				}
-				if(price.goldMax && price.goldMax > 0)
-				{
-					data.increment('goldMax', price.goldMax);
-				}
-				if(price.goldMaxVip > 0)
-				{
-					data.increment('goldMax', price.goldMaxVip);
-				}
-				return data.save();
 			}
-		}).then(function(success)
+			else
+			{
+				info['signCount'] = 0;
+			}
+			if (info['signCount'] > 29)
+			{
+				info['signCount'] = 0;
+			}
+			info.date = now.getFullYear()+"-"+ (now.getMonth() + 1) + "-" + now.getDate();
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(user)
 		{
+			if (!user)
+			{
+				return AV.Promise.error('查询失败!');
+			}
+			log.set('userID', user.get('userID'));
+			log.set('goldBefore', user.get('goldNum'));
+			log.set('goldMaxBefore', user.get('goldMax'));
+			log.set('diamondBefore', user.get('Diamond'));
+
+			var qdDate = new Date(user.get('lastQDtime').replace(/-/g,"/"));
+			if(qdDate && common.checkDaySame(qdDate, now))
+			{
+				return AV.Promise.error('已经签到过了!');
+			}
+			user.set('lastQDtime', common.FormatDate(now));
+			var vip = user.get('VIPType');
+			price =  common.getSignReword(vip, info['signCount']);
+
+			price.day = info['signCount'];
+
+			if(price.diamond && price.diamond > 0)
+			{
+				user.increment('Diamond', price.diamond);
+			}
+			if(price.gold && price.gold > 0)
+			{
+				user.increment('goldNum', price.gold + price.goldVip);
+			}
+			if(price.goldMax && price.goldMax > 0)
+			{
+				user.increment('goldMax', price.goldMax);
+			}
+			if(price.goldMaxVip > 0)
+			{
+				user.increment('goldMax', price.goldMaxVip);
+			}
+			user.fetchWhenSave(true);
+			return user.save();
+		}).then(function(data)
+		{
+			log.set('goldNum', data.get('goldNum'));
+			log.set('goldMax', data.get('goldMax'));
+			log.set('diamond', data.get('Diamond'));
+			log.set('Day', price.day);
+			log.save();
+
 			return new AV.Query('qianDaoInfo').first();
 		}).then(function(data)
 		{
@@ -1231,16 +1269,15 @@ AV.Cloud.define('DaySign', function(request, response)
 			{
 				goldMax += price.goldMax;
 			}
-			if(goldMax > 0 )
+			if (goldMax > 0)
 			{
 				newValue += ' 金币上限'+ goldMax;
 			}
 			if(price.diamond && price.diamond > 0)
 			{
-				newValue += ' 钻石'+(price.diamond);
+				newValue += ' 钻石'+(price.diamond);	
 			}
 			newValue += ',';
-
 			if(common.checkDaySame(data.updatedAt, new Date()))//同一天
 			{
 				newValue += data.get('qdIDs');
@@ -1255,11 +1292,13 @@ AV.Cloud.define('DaySign', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
+			redisClient.setAsync('signInfo:'+uuid, JSON.stringify(info));
 			response.success(price);
 		}).catch(function(error)
 		{
 			response.error(error);
-		})
+
+		})			
 	})
 });
 
@@ -1313,6 +1352,10 @@ AV.Cloud.define('sendNotice', function(request, response)
 	else if(type == 1)
 	{
 		goldNum = -500;
+		if (request.params.free == 1)
+		{
+			goldNum = 0;
+		}
 		if(actid == 1)
 		{
 			diamond -= 1;
@@ -1329,11 +1372,17 @@ AV.Cloud.define('sendNotice', function(request, response)
 		{
 			diamond -= 10;
 		}
+		if (diamond == 0 && goldNum == 0)
+		{
+			return response.success({'goldNum':goldNum, 'diamond':diamond});
+		}
+		
 	}
 	if(goldNum >= 0 && diamond >= 0)
 	{
 		return response.error('参数错误!');
 	}
+	
 	var now = new Date();
 	redisClient.incr("Notice:"+userID, function(err, id)
 	{
@@ -2247,6 +2296,7 @@ AV.Cloud.define('JoinMembership', function(request, response)
 AV.Cloud.define('getSerialSignReword', function(request, response)
 {
 	var userID = request.params.userID;
+	var uuid = request.params.uuid;
 	var dayReword = [{day:1,gold:100}, {day:2,gold:150}, {day:3,gold:200, goldMax:100,diamond:5}, {day:4,gold:240}, 
     {day:5,gold:300,goldMax:150}, {day:6,gold:350},{day:7,gold:400, goldMax:200, diamond:8},
     {day:8,gold:500}, {day:9,gold:600}, {day:10,gold:700,goldMax:240,diamond:10},
@@ -2255,6 +2305,9 @@ AV.Cloud.define('getSerialSignReword', function(request, response)
     {day:21,gold:2100},{day:22,gold:2200},{day:23,gold:2400},{day:24,gold:2500},{day:25,gold:3000,goldMax:600,diamond:30},
     {day:26,gold:3100},{day:27,gold:3200},{day:28,gold:3300},{day:29,gold:3400},{day:30,gold:4000,goldMax:800,diamond:40}];
 
+    var info = {};
+    var now = new Date();
+    var lastDay = new Date(now.getTime() - 86400000);	
 	redisClient.getAsync('token:' + userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -2265,37 +2318,33 @@ AV.Cloud.define('getSerialSignReword', function(request, response)
 				return AV.Promise.error('访问失败!');
 			}
 		}
-		return redisClient.getAsync('user:'+userID);
-	}).then(function(cachedUser)
+		return redisClient.getAsync('signInfo:'+ uuid);
+	}).then(function(cache)
 	{
-		if(cachedUser)
+		if(cache)
 		{
-			var obj = new AV.Object(JSON.parse(cachedUser), {parse: true});
-			response.success({reword:dayReword,day:obj.get('serialSign'), vip:obj.get('VIPType')});
-			if(obj.get('lastQDtime') && common.checkDaySame(new Date(), common.stringToDate(data.get('lastQDtime'))))
+			info = JSON.parse(cache);
+			if (info.date && common.checkDaySame(now, common.stringToDate(info.date)))
 			{
-				return AV.Promise.error('你已经签到过了!');
+				return response.error('你已经签到过了,一台设备每天只能签到一次!');
 			}
-			return AV.Promise.error('over');
+			if(info.signCount < 29 && common.checkDaySame(lastDay, common.stringToDate(info.date)))
+			{
+				info.signCount += 1;
+			}
+			else
+			{
+				info.signCount = 0;
+			}
 		}
 		else
 		{
-			return new AV.Query('chatUsers').equalTo('userID', userID);
+			info.signCount = 0;
 		}
-	}).then(function(data)
-	{
-		redisClient.setAsync('user:'+userID, JSON.stringify(data));
-		if(obj.get('lastQDtime') && common.checkDaySame(new Date(), common.stringToDate(data.get('lastQDtime'))))
-		{
-			return response.error('你已经签到过了!');
-		}
-		response.success({reword:dayReword,day:data.get('serialSign'), vip:data.get('VIPType')});
+
+		response.success({reword:dayReword,day:info.signCount});
 	}).catch(function(error)
 	{
-		if(error == 'over')
-		{
-			return;
-		}
 		response.error(error);
 	});
 });
@@ -2311,12 +2360,12 @@ AV.Cloud.define('getUserGamblingInfo', function(request, response)
 				return AV.Promise.error('访问失败!');
 			}
 		}
-		return redisClient.getAsync('gamblingLog:'+request.params.userID);
+		return redisClient.getAsync('gamblingLog:' + request.params.userID);
 	}).then(function(cache)
 	{
 		if(!cache)
 		{
-			response.success({'userID':otherID, 'win':0,'lose':0,'winGold':0,'loseGold':0,'winDiamond':0,'loseDiamond':0});
+			response.success({'userID':request.params.userID, 'win':0,'lose':0,'winGold':0,'loseGold':0,'winDiamond':0,'loseDiamond':0});
 		}
 		else
 		{
@@ -2325,6 +2374,128 @@ AV.Cloud.define('getUserGamblingInfo', function(request, response)
 	}).catch(function(error)
 	{
 		response.error('查询失败!');
+	})
+});
+
+AV.Cloud.define('saveChatListUser', function(request, response)
+{
+	var userID = request.params.userID;
+	var otherID = request.params.otherID;
+	var users = request.params.users;
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return redisClient.getAsync('chatListUser:'+userID);
+	}).then(function(cache)
+	{
+		var array = new Array();
+		if(cache)
+		{
+			array = cache.split(',');
+		}
+		if (otherID)
+		{
+			for (var i = array.length - 1; i >= 0; i--) {
+				if (array[i] == otherID)
+				{
+					return response.error('该账号已经存储过了!');
+				}
+			}
+			array.push(otherID);
+		}
+		else
+		{
+			for (var i = 0; i < users.length; i++) {
+				var has = false;
+				for (var j = 0; j < array.length; j++)
+				{
+					if (users[i] == array[j])
+					{
+						has = true;
+					}
+				}
+				if (!has)
+				{
+					array.push(users[i]);
+				}
+			}
+		}
+		redisClient.setAsync('chatListUser:' + userID, array.join(','));
+		response.success('success');
+	}).catch(function(error)
+	{
+		console.log(error);
+		return response.error('error');
+	})
+});
+
+AV.Cloud.define('getChatListUser', function(request, response)
+{
+	var userID = request.params.userID;
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return redisClient.getAsync('chatListUser:'+userID);
+	}).then(function(cache)
+	{
+		var array = new Array();
+		if(cache)
+		{
+			array = cache.split(',');
+		}
+		return response.success(array);
+	}).catch(function(error)
+	{
+		console.log(error);
+		response.error('error');
+	})
+})
+
+AV.Cloud.define('delChatListUser', function(request, response)
+{
+	var userID = request.params.userID;
+	var otherID = request.params.otherID;
+	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+		return redisClient.getAsync('chatListUser:'+userID);
+	}).then(function(cache)
+	{
+		var array = new Array();
+		if(cache)
+		{
+			var old = cache.split(',');
+			for (var i = 0; i < old.length; i++) {
+				if ( old[i] != otherID)
+				{
+					array.push(old[i]);
+				}
+			}
+		}
+		redisClient.setAsync('chatListUser:' + userID, array.join(','));
+		response.success('success');
+	}).catch(function(error)
+	{
+		console.log(error);
+		return response.error('error');
 	})
 });
 

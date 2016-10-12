@@ -25,6 +25,7 @@ return 'object';
 AV.Cloud.define('getUserInfo',function(request, response)
 {
 	var userID = request.params.userID;
+  console.log(request.params);
   var retData = new Array();
   //if(IsArray(userIds) == 'object')
   //{
@@ -88,7 +89,6 @@ function fetchUserFromCache(userId, response)
       obj.set('serverTimeSecond', Math.floor(new Date()/1000));
       
       var vipDate = common.stringToDate(obj.get('VIPDay'));
-      console.log(common.FormatDate(vipDate));
       if(obj.get('VIPType') > 0 && common.checkDayGreater(new Date(), vipDate))
       {
         obj.set('VIPType', 0);

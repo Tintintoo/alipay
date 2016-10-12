@@ -360,3 +360,49 @@ exports.getSignReword = function(vipType, day)
     price['goldMaxVip'] = Math.floor(price.gold * vipType /100);
     return price;
 }
+
+exports.getProbility = function(value, type)
+{
+    if(type == 1)//金币阶梯
+    {
+        if(value > 500000)
+        {
+            return 40;
+        }
+        else if(value > 300000)
+        {
+            return 30;
+        }
+        else if(value > 100000)
+        {
+            return 20;
+        }
+        else if (value > 30000)
+        {
+            return 10;
+        }
+        else 
+            return 0;
+    }
+    else 
+    {
+        if (value > 5000)
+        {
+            return 40;
+        }
+        else if (value > 3000)
+        {
+            return 30;
+        }
+        else if (value > 1000)
+        {
+            return 20;
+        }
+        else if (value > 300)
+        {
+            return 10;
+        }
+        else 
+            return 0;
+    }
+}

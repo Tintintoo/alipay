@@ -5,6 +5,8 @@ var urlutil=require('url');
 var querystring = require('querystring');
 var md5 = require('MD5');
 var crypto = require('crypto');
+var redisClient = require('./redis').redisClient;
+var common = require('./common');
 
 //产品密钥ID，产品标识 
 var secretId = "5c05f160dbb2ada14bdd2dadf158edc3";
@@ -160,8 +162,8 @@ AV.Cloud.define('yunxinLogIn', function(request, response)
 {
 	var timestamp = parseInt(new Date().getTime()/1000).toString();
 	var nonce = util.generateNonceString();
-	var appkey = '89066567011f783f02ae90c5a588a899';
-	var appSecret = '57af5474be15';
+	var appkey = '457df59253dc5233cd34d1642cefd742';
+	var appSecret = '2e4575f65998';
 	var urlObj = urlutil.parse('https://api.netease.im/nimserver/user/create.action');
 	//拉取token
 	if(request.params.account)
@@ -228,6 +230,72 @@ AV.Cloud.define('yunxinLogIn', function(request, response)
 	req.write(content);
 	req.end();
 });
+
+AV.Cloud.define('setActor', function(request, response)
+{
+	var roomID = request.params.roomID;
+	var userID = request.params.userID;
+	var mute = request.params.mute;
+	var seat = request.param.seat;
+	var groupID = '';
+	if (mute == 1)
+	{
+		if (seat < 0 || seat >= 8)
+		{
+			return response.error('上麦失败,参数错误!');
+		}
+	}
+	redisClient.incr('Actor:' + roomID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		redisClient.expire('Actor:' + roomID, 1);
+
+		new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
+		{
+			var seats = data.get('seat').split(',');
+			groupID = data.get('groupID');
+			for (var i = seats.length - 1; i >= 0; i--) 
+			{
+				if (i == seat)
+				{
+					if (mute == 0 )
+					{
+						if (seats[i] == userID)
+						{
+							seats[i] = 0;
+						}
+						else
+						{
+							return AV.Promise.error('下麦失败!');
+						}
+					}
+					else if(mute == 1)
+					{
+						if (seats[i] == 0)
+						{
+							seats[i] = userID;
+						}
+						else
+						{
+							return AV.Promise.error('上麦失败!');
+						}
+					}
+				}
+			}
+			data.set('seat', seats.join(','));
+			return data.save();
+		}).then(function(success)
+		{
+			response.success(groupID);
+		}).catch(error)
+		{
+			response.error(error);
+		}
+	});
+})
 
 
 module.exports = AV.Cloud;
