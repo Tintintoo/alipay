@@ -5,6 +5,7 @@ var util = require('./lib/util');
 var IAPInfo = AV.Object.extend('IAPInfo');
 var piaoliuping = require('./piaoliuping');
 var common = require('./common');
+var iaplog = AV.Object.extend('iaplog');
 /**
  * 一个简单的云代码方法
  */
@@ -325,6 +326,14 @@ AV.Cloud.define('payCheck', function(request, response)
 {
   var vip = [1.0, 1.05, 1.08, 1.12, 1.18, 1.25, 1.33, 1.42, 1.52, 1.63, 1.63, 1.63, 1.63];
   var version = request.params.version;
+
+  var log = new iaplog();
+  log.set('userID', request.params.userID);
+  log.set('receiptData', request.params.receiptdata);
+  log.set('identifier', request.params.identifier);
+  console.log(request.params);
+  log.save();
+
   if(version == 0)
   {
       var identify = request.params.identifier;
@@ -371,12 +380,16 @@ AV.Cloud.define('payCheck', function(request, response)
   }
   else
   {
+    var log = new iaplog();
+    log.set('userID', request.params.userID);
+    log.set('receiptData', request.params.receiptdata);
+    log.save();
     AV.Cloud.httpRequest({
   method: 'POST',
   headers: {
     'Content-Type': 'application/json'
   },
-  url: request.params.url,
+  url: 'https://buy.itunes.apple.com/verifyReceipt',
   body: request.params.receiptdata,
   success: function(httpResponse) {
     if(!version)
@@ -389,7 +402,9 @@ AV.Cloud.define('payCheck', function(request, response)
       var data = JSON.parse(httpResponse.text);
       var identify = data.product_id;
       var product = getProductInfo(identify);
-      if(!product.goldNum && !product.goldMax && !product.diamond && !product.money){
+      if(!product.goldNum && !product.goldMax && !product.diamond && !product.money)
+      {
+        console.log('查询失败,请联系客服!');
         return response.error('查询失败,请联系客服!');
       }
       var goldNum = product.goldNum || 0;
@@ -400,6 +415,7 @@ AV.Cloud.define('payCheck', function(request, response)
       {
         if(!data)
         {
+          console.log('充值时用户查询失败!');
           return response.error('用户读取失败!');
         }
         var increase = vip[common.getVipType(data.get('BonusPoint'))];
@@ -425,6 +441,7 @@ AV.Cloud.define('payCheck', function(request, response)
         log.save();
       }).catch(function(error)
       {
+        console.log(error);
         return response.error('查询用户失败!');
       });
     }

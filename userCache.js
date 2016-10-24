@@ -25,7 +25,7 @@ return 'object';
 AV.Cloud.define('getUserInfo',function(request, response)
 {
 	var userID = request.params.userID;
-  console.log(request.params);
+  //console.log(request.params);
   var retData = new Array();
   //if(IsArray(userIds) == 'object')
   //{
@@ -608,6 +608,10 @@ AV.Cloud.define('changeLoverWorldTheme', function(request, response)
               {
                 return AV.Promise.error('error');
               }
+              if (!obj.get('Diamond') && diamond > 0)
+              {
+                return AV.Promise.error('error');
+              }
 
               obj.increment('Diamond',-1 * diamond);
               obj.fetchWhenSave(true);
@@ -804,5 +808,6 @@ AV.Cloud.define('getBadUserCache', function(req, res)
         })(array[i]);
       }
     });
+  response.success('完成!');
 });
 module.exports = AV.Cloud;

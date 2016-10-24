@@ -236,14 +236,12 @@ AV.Cloud.define('setActor', function(request, response)
 	var roomID = request.params.roomID;
 	var userID = request.params.userID;
 	var mute = request.params.mute;
-	var seat = request.param.seat;
+	var seat = request.params.seat;
 	var groupID = '';
-	if (mute == 1)
+
+	if (seat < 0 || seat >= 8)
 	{
-		if (seat < 0 || seat >= 8)
-		{
-			return response.error('上麦失败,参数错误!');
-		}
+			return response.error('参数错误!');
 	}
 	redisClient.incr('Actor:' + roomID, function(err, id)
 	{
@@ -255,8 +253,13 @@ AV.Cloud.define('setActor', function(request, response)
 
 		new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
 		{
+			if(!data)
+			{
+				return AV.Promise.error('没查询到数据!');
+			}
 			var seats = data.get('seat').split(',');
 			groupID = data.get('groupID');
+
 			for (var i = seats.length - 1; i >= 0; i--) 
 			{
 				if (i == seat)
@@ -283,6 +286,39 @@ AV.Cloud.define('setActor', function(request, response)
 							return AV.Promise.error('上麦失败!');
 						}
 					}
+					else if (mute == 2)
+					{
+						if (seats[i] >= 0)
+						{
+							return AV.Promise.error('解封失败,该座位并非被封禁!');
+						}
+						else
+						{
+							seats[i] = 0;
+						}
+					}
+					else if (mute == 4)
+					{
+						if (seats[i] >= 0)
+						{
+							seats[i] = -1;
+						}
+						else
+						{
+							return AV.Promise.error('该座位已经被封禁了!');
+						}
+					}
+					else if (mute == 5 || mute == 6)//强制踢人,强制下麦
+					{
+						if (seats[i] > 0)
+						{
+							seats[i] = 0;
+						}
+						else
+						{
+							return AV.Promise.error('该座位没有人!');
+						}
+					}
 				}
 			}
 			data.set('seat', seats.join(','));
@@ -290,12 +326,252 @@ AV.Cloud.define('setActor', function(request, response)
 		}).then(function(success)
 		{
 			response.success(groupID);
-		}).catch(error)
+		}).catch(function(error)
 		{
 			response.error(error);
-		}
+		});
 	});
 })
 
+AV.Cloud.define('liveRoomChangeTheme', function(request, response)
+{
+	var roomID = request.params.roomID;
+	var userID = request.params.userID;
+	var theme = request.params.theme;
+	var groupID = '';
 
+	redisClient.incr('liveRoomTheme:' + roomID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		redisClient.expire('liveRoomTheme:' + roomID, 1);
+
+		new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('没查询到数据!');
+			}
+			if (data.get('anchor') != userID)
+			{
+				return AV.Promise.error('你不是房主,无法更换主题背景!');
+			}
+			data.set('theme', theme);
+			groupID = data.get('groupID');
+			return data.save();
+		}).then(function(success)
+		{
+			response.success(groupID);
+		}).catch(response.error);
+	});
+})
+
+AV.Cloud.define('closeRoom', function(request, response)
+{
+	var roomID = request.params.roomID;
+	var userID = request.params.userID;
+	var groupID = '';
+	return redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('访问失败!');
+			}
+		}
+	return new AV.Query('audioLive').equalTo('roomID', roomID).first();
+	}).then(function(data)
+	{
+		if(data.get('anchor') != userID)
+		{
+			return AV.Promise.error('你不是房主,无法关闭房间!');
+		}
+		groupID = data.get('groupID');
+		return data.destroy();
+	}).then(function(success)
+	{
+		response.success(groupID);
+	}).catch(function(error)
+	{
+		response.error(error);
+	});
+})
+
+AV.Cloud.define('joinLiveRoom', function(request, response){
+	var userID = request.params.userID;
+	var roomID = request.params.roomID;
+	var key = "joinLiveRoom:"+ roomID+ '-' + userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if (err || id > 1)
+		{
+			return response.error('已经处理了!');
+		}
+		redisClient.expire(key, 3);
+		redisClient.getAsync('liveRoomUser:' + roomID).then(function(cache)
+		{
+			var users = new Array();
+			if (cache)
+			{
+				users = cache.split(',');
+				for (var i = users.length - 1; i >= 0; i--) {
+					if( users[i] == userID)
+					{
+						return response.error('已经存在了');
+					}
+				}
+			}
+			users.push(userID);
+			console.log(users);
+			redisClient.setAsync('liveRoomUser:'+roomID, users.join(','));
+		}).catch(function(error)
+		{
+			console.log(error);
+			response.error('error');
+		})
+	});
+});
+
+AV.Cloud.define('leaveLiveRoom', function(request, response){
+	var userID = request.params.userID;
+	var roomID = request.params.roomID;
+	var key ="leaveLiveRoom:"+ roomID +'-' + userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if (err || id > 1)
+		{
+			return response.error('已经处理了!');
+		}
+		redisClient.expire(key, 3);
+		redisClient.getAsync('liveRoomUser:' + roomID).then(function(cache)
+		{
+			var users = new Array();
+			if (cache)
+			{
+				users = cache.split(',');
+				for (var i = users.length - 1; i >= 0; i--) {
+					if( users[i] == userID)
+					{
+						users.splice(i, 1);
+					}
+				}
+			}
+			else
+			{
+				return response.error('error');
+			}
+			redisClient.setAsync('liveRoomUser:'+roomID, users.join(','));
+		}).catch(function(error)
+		{
+			response.error('error');
+		})
+	});
+});
+
+AV.Cloud.define('liveRoomOnline', function(request, response)
+{
+	var roomID = request.params.roomID;
+	redisClient.getAsync('liveRoomUser:' + roomID).then(function(cache)
+	{
+		if(!cache)
+		{
+			return response.success(0);
+		}
+		else
+		{
+			var users = cache.split(',');
+			return response.success(users.length);
+		}
+	}).catch(function(error)
+	{
+		response.success(0);
+	});
+})
+
+AV.Cloud.define('liveRoomSendGift', function(request, response)
+{
+	var userID = request.params.userID;
+	var otherID = request.params.otherID;
+	var roomID = request.params.roomID;
+	var groupID = '';
+	var gift = common.getLiveRoomGift(request.params.giftID);
+	if (!gift || gift.gold <= 0)
+	{
+		return response.error('查询失败!');
+	}
+
+	return redisClient.incr('liveRoomSendGift:'+userID, function(err, id) 
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问出错!');
+		}
+		redisClient.expire('liveRoomSendGift:'+userID, 1);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('chatUsers').containedIn('userID', [userID, otherID]).find();
+		}).then(function(results)
+		{
+			if(results.length != 2)
+			{
+				return AV.Promise.error('获取用户信息失败!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if (data.get('userID') == userID)
+				{
+					if (data.get('goldNum') < gift.gold)
+					{
+						return AV.Promise.error('金币不足!');
+					}
+					data.increment('goldNum', -1*gift.gold);
+					data.increment('useGold', gift.gold);
+					if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
+					{
+						data.increment('dailyUseGold', gift.gold);
+					}
+					else{
+						data.set('dailyUseGold', gift.gold);
+					}
+					data.set('dailyUseGoldAt', new Date());
+
+				}
+				else
+				{
+					data.increment('beLikedNum', gift.charm);
+				//日魅力增加
+					if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
+					{
+						data.increment('dailylike', gift.charm);
+					}
+					else
+					{
+						data.set('dailylike', gift.charm);
+					}
+					data.set('dailylikeAt', new Date());
+				}
+
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			response.success('success');
+		}).catch(function(error)
+		{
+			response.error(error);
+		})
+	});
+})
 module.exports = AV.Cloud;

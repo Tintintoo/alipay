@@ -166,7 +166,30 @@ exports.getMapSilver = function(mapID)
     }
     else if(mapID > 1000 && mapID <1009)
     {
-        return (mapID-1000)*1000;
+        if(mapID == 1001)
+        {
+            return 2000;
+        }
+        else if(mapID == 1002)
+        {
+            return 3000;
+        }
+        else if(mapID == 1003)
+        {
+            return 5000;
+        }
+        else if(mapID == 1004)
+        {
+            return 7000;
+        }
+        else if(mapID == 1005)
+        {
+            return 8000;
+        }
+        else if(mapID == 1006)
+        {
+            return 10000;
+        }
     }
     else
     {
@@ -296,26 +319,7 @@ exports.getExpandPrice=function(value)
 }
 exports.getGoldIncrease= function(type , level)
 {
-    if(type == 0)
-    {
-        return 2 + level;
-    }
-    else if(type == 1)
-    {
-        return parseInt(4 + level * 1.5);
-    }
-    else if(type == 2)
-    {
-        return parseInt(6 + level * 2);
-    }
-    else if(type == 3)
-    {
-        return parseInt(8 + level * 2.5);
-    }
-    else
-    {
-        return parseInt(10 + level * 3);
-    }
+    return 500 + level * 20;
 }
 exports.stringToDate= function(value)
 {
@@ -405,4 +409,37 @@ exports.getProbility = function(value, type)
         else 
             return 0;
     }
+}
+
+exports.getPetGoldMax = function(petType, level)
+{
+    if (petType == 0)
+    {
+        return 60 + 50 *level;
+    }
+    else if (petType == 1)
+    {
+        return 120 + 100 * level;
+    }
+    else if (petType == 2)
+    {
+        return 180 + 150 * level;
+    }
+    else if (petType == 3)
+    {
+        return 300 + 200 * level;
+    }
+    else if (petType == 4)
+    {
+        return 600 + 300 * level;
+    }
+}
+
+exports.getLiveRoomGift = function(giftID)
+{
+    if (giftID == 11000)
+    {
+        return {gold:1000,charm:500};
+    }
+    return null;
 }

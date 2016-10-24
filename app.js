@@ -37,6 +37,7 @@ app.use('/pay', require('./routes/pay'));
 // 生成一个异常让后面的 err handler 捕获
 app.use(function(req, res, next) 
 {
+  console.log(req);
   var err = new Error('Not Found');
   err.status = 404;
   next(err);

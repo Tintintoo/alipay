@@ -8,10 +8,11 @@ var marryUsers = AV.Object.extend('marryUsers');
 var weddingCashLog = AV.Object.extend('weddingCashLog');
 var weddingLog = AV.Object.extend('weddingLog');
 var signLog = AV.Object.extend('Log_QianDao');
+var growLog = AV.Object.extend('growLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
-
+	//console.log('logInUserByPhone');
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -71,6 +72,7 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 
 AV.Cloud.define('LogInUserByWeChat', function(request, response)
 {
+	//console.log('loginByWx');
 	var openid = request.params.openid;
 	var userID = -1;
 	var query = new AV.Query('chatUsers');
@@ -128,6 +130,7 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 
 AV.Cloud.define('LogInByToken', function(request, response)
 {
+	//console.log('loginByToken' + parseInt(new Date().getTime()/1000));
 	var token = request.params.token;
 	redisClient.getAsync(token).then(function(cache)
 	{
@@ -135,21 +138,24 @@ AV.Cloud.define('LogInByToken', function(request, response)
 		{
 			redisClient.expire(token, 86400*7);
 			redisClient.expire('token'+cache, 86400*7);
-
+			//console.log('完事' + parseInt(new Date().getTime()/1000));
 			response.success(parseInt(cache));
 		}
 		else
 		{
+			//console.log('完事' + parseInt(new Date().getTime()/1000));
 			response.error('本地登录已经过期,请重新输入账户密码!');
 		}
 	}).catch(function(error)
 	{
+		//console.log('完事' + parseInt(new Date().getTime()/1000));
 		response.error('未知错误!');
 	});
 });
 
 AV.Cloud.define('checkPhoneUse', function(request, response)
 {
+	//console.log('checkPhoneUse');
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var type = request.params.type;
@@ -184,6 +190,7 @@ AV.Cloud.define('checkPhoneUse', function(request, response)
 
 AV.Cloud.define('checkPhoneVerify', function(request, response)
 {
+	//console.log('checkPhoneVerify');
 	var phoneNumber = request.params.phoneNumber;
 	var encodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -268,6 +275,7 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 //chatUsers表相关
 AV.Cloud.define('updateUserInfo', function(request, response)
 {
+	//console.log('updateUserInfo');
 	var userID = request.params.userID;
 	var fields = request.params.field;
 	var values = request.params.value;
@@ -331,14 +339,9 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 			data.set('launchTime', now);
 			data.set('onlineTime', now);
 			data.save();
-			var gag = [];
 			if(data.get('GagDate'))
 			{
-				data.get('GagDate').split('-');
-			} 
-			if(gag.length == 3)
-			{
-				if(parseInt(gag[0]) <= now.getFullYear() && parseInt(gag[1]) <= now.getMonth()+1 && parseInt(gag[2]) <= now.getDate())
+				if (new Date().getTime() < common.stringToDate(data.get('GagDate')).getTime())
 				{
 					return response.success({gag:1});
 				}
@@ -354,6 +357,7 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 
 AV.Cloud.define('PraiseAndBad', function(request, response)
 {
+	//console.log('好评');
 	var fromID = request.params.fromID;	
 	var userID = request.params.userID;
 	var type = request.params.type;
@@ -492,6 +496,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 
 AV.Cloud.define('startChat', function(request, response)
 {
+	//console.log('startChat');
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	var needGold = 0;
@@ -756,6 +761,10 @@ AV.Cloud.define('increaseGold', function(request, response)
 			response.success({'gold':gold});
 		}).catch(function(error)
 		{
+			if(tag == 10)
+			{
+				return response.success({'gold':0});
+			}
 			if(shareInfo)
 			{
 				shareInfo.destroy();
@@ -829,6 +838,7 @@ AV.Cloud.define('IncreaseSilver', function(request, response)
 
 AV.Cloud.define('harvestPetGold', function(request, response)
 {
+	//console.log('harvestPetGold');
 	if(request.params.remoteAddress == '114.254.97.89'
 		|| request.params.remoteAddress == '183.167.204.161')
 	{
@@ -843,9 +853,9 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 	{
 		if(err || id > 1)
 		{
-			response.error('访问频繁!');
+			return response.error('访问频繁!');
 		}
-		redisClient.expire(key, 2);
+		redisClient.expire(key, 10);
 
 		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
@@ -857,15 +867,32 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 					return AV.Promise.error('还未到收获时间');
 				}
 				var newTime = new Date(date.getTime() + parseInt(data.get('goldMax') * 600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
+				if ( (newTime.getTime() - new Date().getTime()) / 1000 > 7 * 86400)
+				{
+					console.log('宠物银币收货时间时间:'+common.FormatDate(newTime) +'宠物银币恢复速度:'+common.getGoldIncrease(data.get('petType'), data.get('level')));
+				}
 				data.set('goldHarvestAt', common.FormatDate(newTime));
 				silver = data.get('gold');
+				if (silver < 0)
+				{
+					return AV.Promise.error('收获失败!');
+				}
+				if (silver > data.get('goldMax'))
+				{
+					silver = data.get('goldMax');
+				}
+				if (silver > 150000)
+				{
+					silver = 150000;
+				}
+				data.set('gold', 0);
 			}
 			else
 			{
 				var gold = data.get('gold');
 				var goldMax = data.get('goldMax');
 				silver = parseInt(goldMax * 0.1);
-				if(gold < goldMax * 0.4)
+				if(gold < goldMax * 0.4 || gold <= 0)
 				{
 					return AV.Promise.error('银币不足,无法偷取!');
 				}
@@ -873,9 +900,18 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 				{
 					silver = parseInt(gold - goldMax*0.4);
 				}
-			}
+				if (silver > 15000)
+				{
+					silver = 15000;
+					data.set('gold', data.get('goldMax'));
+				}
 
-			data.increment('gold', -1 * silver);
+				data.increment('gold', -1 * silver);
+			}
+			if (silver > 150000 || silver < 0 || silver > data.get('goldMax'))
+			{
+				return AV.Promise.error('收获失败!');
+			}
 			return data.save();
 		}).then(function(success)
 		{
@@ -886,6 +922,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			return data.save();
 		}).then(function(success)
 		{
+			redisClient.expire(key, 3600 * 12);
 			response.success({'silver':silver});
 		}).catch(function(error)
 		{
@@ -897,6 +934,7 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 
 AV.Cloud.define('IncreaseField', function(request, response)
 {
+	//console.log('increasefield');
 	var userID = request.params.userID;
 	var field = request.params.field;
 	var dailyField = request.params.dailyField;
@@ -908,7 +946,7 @@ AV.Cloud.define('IncreaseField', function(request, response)
 	{
 		if(err || id > 1)
 		{
-			response.error('访问频繁!');
+			return response.error('访问频繁!');
 		}
 		redisClient.expire(key, 1);
 		return new AV.Query('chatUsers').equalTo('userID', otherID).first().then(function(data)
@@ -963,6 +1001,7 @@ AV.Cloud.define('IncreaseField', function(request, response)
 
 AV.Cloud.define('startBottleChat', function(request, response)
 {
+	//console.log('捡瓶子');
 	var userID = request.params.userID;
 	var cost = 0;
 	return redisClient.getAsync('token:' + userID).then(function(cache)
@@ -1027,6 +1066,7 @@ AV.Cloud.define('startBottleChat', function(request, response)
 });
 
 AV.Cloud.define('setLottery', function(request, response){
+
 	var userID = request.params.userID;
 	return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
 	{
@@ -1081,6 +1121,7 @@ AV.Cloud.define('resetUserInfo', function(request, response)
 
 AV.Cloud.define('useDiamond', function(request, response)
 {
+	///console.log('useDiamond');
 	var userID = request.params.userID;
 	var tag = request.params.tag;
 	var diamond  = 0;
@@ -1168,6 +1209,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 
 AV.Cloud.define('DaySign', function(request, response)
 {
+	//console.log('DaySign');
 	var userID = request.params.userID;
 	var uuid = request.params.uuid;
 	var price = {};
@@ -1190,8 +1232,7 @@ AV.Cloud.define('DaySign', function(request, response)
 				info = JSON.parse(cache);
 				if (common.checkDaySame(now, common.stringToDate(info.date)))
 				{
-					response.error('签到失败,该设备已经签到过了!');
-					return AV.Promise.error('失败!');
+					return AV.Promise.error('签到失败,该设备已经签到过了!');
 				}
 				if(common.checkDaySame(lastDay, common.stringToDate(info.date)))
 				{
@@ -1222,11 +1263,13 @@ AV.Cloud.define('DaySign', function(request, response)
 			log.set('goldBefore', user.get('goldNum'));
 			log.set('goldMaxBefore', user.get('goldMax'));
 			log.set('diamondBefore', user.get('Diamond'));
-
-			var qdDate = new Date(user.get('lastQDtime').replace(/-/g,"/"));
-			if(qdDate && common.checkDaySame(qdDate, now))
+			if (user.get('lastQDtime'))
 			{
-				return AV.Promise.error('已经签到过了!');
+				var qdDate = new Date(user.get('lastQDtime').replace(/-/g,"/"));
+				if(qdDate && common.checkDaySame(qdDate, now))
+				{
+					return AV.Promise.error('已经签到过了!');
+				}
 			}
 			user.set('lastQDtime', common.FormatDate(now));
 			var vip = user.get('VIPType');
@@ -1282,7 +1325,7 @@ AV.Cloud.define('DaySign', function(request, response)
 			{
 				newValue += data.get('qdIDs');
 				data.increment('qdTotal', 1);
-				data.set('qdIDs', newValue);
+				data.set('qdIDs', newValue.split(',').slice(0, 60).join(','));
 			}
 			else
 			{
@@ -1293,17 +1336,20 @@ AV.Cloud.define('DaySign', function(request, response)
 		}).then(function(success)
 		{
 			redisClient.setAsync('signInfo:'+uuid, JSON.stringify(info));
+
+			//console.log('签到' + parseInt(new Date().getTime()/1000));
 			response.success(price);
 		}).catch(function(error)
 		{
+			//console.log('签到' + parseInt(new Date().getTime()/1000));
 			response.error(error);
-
 		})			
 	})
 });
 
 AV.Cloud.define('sendNotice', function(request, response)
 {
+	//console.log('sendNotice');
 	var userID = request.params.userID;
 	var type = request.params.type;
 	var actid = request.params.actid;
@@ -1427,6 +1473,7 @@ AV.Cloud.define('sendNotice', function(request, response)
 
 AV.Cloud.define('buyBuildItem', function(request, response)
 {
+	//console.log('buyBuildItem');
 	var userID = request.params.userID;
 	var itemID = request.params.itemID;
 	var itemType = request.params.itemType;
@@ -1491,6 +1538,7 @@ AV.Cloud.define('buyBuildItem', function(request, response)
 
 AV.Cloud.define('cultureBuilding', function(request, response)
 {
+	//console.log('culture');
 	var userID = request.params.userID;
 	var saveObj = [];
 	var goldNum = 0;
@@ -1672,6 +1720,7 @@ AV.Cloud.define('cultureBuilding', function(request, response)
 
 AV.Cloud.define('quickBuild', function(request, response)
 {
+	//console.log('quickBuild');
 	var userID = request.params.userID;
 	var buildNo = request.params.buildNo;
 	var now = parseInt(new Date()/ 1000);
@@ -1724,9 +1773,12 @@ AV.Cloud.define('quickBuild', function(request, response)
 
 AV.Cloud.define('growPlant', function(request, response)
 {
+	//console.log('plant');
 	var userID = request.params.userID;
 	var itemID = request.params.itemID;
 	var fieldTag = request.params.fieldNo - 1;
+
+	var log = new growLog();
 
 	var saveObj = [];
 	var price = common.getBuildingItemPrice(itemID, 3);
@@ -1735,7 +1787,8 @@ AV.Cloud.define('growPlant', function(request, response)
 		return response.error('参数错误!');
 	}
 	var now = new Date();
-	redisClient.incr("growPlant:"+fieldTag, function(err, id)
+
+	redisClient.incr("growPlant:" + fieldTag, function(err, id)
 	{
 		if(err || id > 1)
 		{
@@ -1778,9 +1831,16 @@ AV.Cloud.define('growPlant', function(request, response)
 			data.set('plantTime', parseInt(now.getTime()/1000));
 			data.set('plantCount', price.count);
 			data.set('plantMax', price.count);
+			log.set('plant', itemID);
+			log.set('plantTime', common.FormatDate(new Date()));
+			log.set('fieldNo', data.get('floorID'));
+			log.set('userID', data.get('userID'));
+
+			redisClient.expire('Plant:'+ data.get('buildingNo'), (3600 * 8 + 4) * itemID - 600);
 			data.save();
 		}).then(function(success)
 		{
+			log.save();
 			response.success(price);
 		}).catch(function(error)
 		{
@@ -1791,6 +1851,7 @@ AV.Cloud.define('growPlant', function(request, response)
 
 AV.Cloud.define('expandField', function(request, response)
 {
+	//console.log('expandField');
 	var userID = request.params.userID;
 	var buildNo = request.params.buildNo;
 	var saveObj = [];
@@ -1802,7 +1863,7 @@ AV.Cloud.define('expandField', function(request, response)
 		{
 			return response.error('访问频繁');
 		}
-		redisClient.expire('buildNo:' + buildNo, 1);
+		redisClient.expire('expandField:' + buildNo, 1);
 
 		return redisClient.getAsync('token:' + userID).then(function(cache)
 		{	
@@ -1850,6 +1911,7 @@ AV.Cloud.define('expandField', function(request, response)
 
 AV.Cloud.define('agreeMarriage', function(request, response)
 {
+	//console.log('agreeMarriage');
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	var saveObj = [];
@@ -1948,6 +2010,7 @@ AV.Cloud.define('agreeMarriage', function(request, response)
 
 AV.Cloud.define('beginWedding', function(request, response)
 {
+	//console.log('beginWedding');
 	var userID = request.params.userID;
 	var type = request.params.type;
 	var lover = -1;
@@ -2076,6 +2139,7 @@ AV.Cloud.define('beginWedding', function(request, response)
 
 AV.Cloud.define('sendRedPacket', function(request, response)
 {
+	//console.log('sendRedPacket');
 	var userID = request.params.userID;
 	var gold = request.params.gold;
 	var otherID = request.params.otherID;
@@ -2148,6 +2212,7 @@ AV.Cloud.define('sendRedPacket', function(request, response)
 
 AV.Cloud.define('getWeddingRedPacket', function(request, response)
 {
+	//console.log('getWeddingRedPacket');
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	var gold = 0;
@@ -2227,6 +2292,7 @@ AV.Cloud.define('checkNet', function(request, response)
 
 AV.Cloud.define('JoinMembership', function(request, response)
 {
+	//console.log('joinMember');
 	var userID = request.params.userID;
 	var month = request.params.month;
 	var price = {1:-20, 3:-54, 6:-102,12:-196};
@@ -2295,6 +2361,7 @@ AV.Cloud.define('JoinMembership', function(request, response)
 
 AV.Cloud.define('getSerialSignReword', function(request, response)
 {
+	//console.log('getSerialSignReword');
 	var userID = request.params.userID;
 	var uuid = request.params.uuid;
 	var dayReword = [{day:1,gold:100}, {day:2,gold:150}, {day:3,gold:200, goldMax:100,diamond:5}, {day:4,gold:240}, 
@@ -2351,6 +2418,7 @@ AV.Cloud.define('getSerialSignReword', function(request, response)
 
 AV.Cloud.define('getUserGamblingInfo', function(request, response)
 {
+	//console.log('getUserGamblingInfo');
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
 	{	
 		if(!cache || cache != request.params.token)
@@ -2379,6 +2447,11 @@ AV.Cloud.define('getUserGamblingInfo', function(request, response)
 
 AV.Cloud.define('saveChatListUser', function(request, response)
 {
+	//暂时关闭
+	if (process.env.LEANCLOUD_APP_ENV != 'stage') 
+	{
+		return response.success([]);
+	}
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	var users = request.params.users;
@@ -2407,7 +2480,8 @@ AV.Cloud.define('saveChatListUser', function(request, response)
 					return response.error('该账号已经存储过了!');
 				}
 			}
-			array.push(otherID);
+			//向数组头添加一个元素
+			array.unshift(otherID);
 		}
 		else
 		{
@@ -2430,13 +2504,20 @@ AV.Cloud.define('saveChatListUser', function(request, response)
 		response.success('success');
 	}).catch(function(error)
 	{
-		console.log(error);
+		//console.log('saveChatListUser');
+		//console.log(error);
 		return response.error('error');
 	})
 });
 
 AV.Cloud.define('getChatListUser', function(request, response)
 {
+	//暂时关闭
+	if (process.env.LEANCLOUD_APP_ENV != 'stage') 
+	{
+		return response.success([]);
+	}
+
 	var userID = request.params.userID;
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
 	{	
@@ -2458,13 +2539,20 @@ AV.Cloud.define('getChatListUser', function(request, response)
 		return response.success(array);
 	}).catch(function(error)
 	{
-		console.log(error);
+		//console.log('getChatListUser');
+		//console.log(error);
 		response.error('error');
 	})
 })
 
 AV.Cloud.define('delChatListUser', function(request, response)
 {
+	//暂时关闭
+	if (process.env.LEANCLOUD_APP_ENV != 'stage') 
+	{
+		return response.success([]);
+	}
+
 	var userID = request.params.userID;
 	var otherID = request.params.otherID;
 	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
@@ -2494,9 +2582,9 @@ AV.Cloud.define('delChatListUser', function(request, response)
 		response.success('success');
 	}).catch(function(error)
 	{
-		console.log(error);
 		return response.error('error');
 	})
 });
+
 
 module.exports = AV.Cloud;
