@@ -1,6 +1,11 @@
 var AV = require('leanengine');
 var redisClient = require('./redis').redisClient;
 var common = require('./common');
+var http = require('https');
+var urlutil=require('url');
+var querystring = require('querystring');
+
+
 var chatUsers = AV.Object.extend('chatUsers');
 var userLog = AV.Object.extend('userLog');
 var building = AV.Object.extend('building');
@@ -636,7 +641,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 	{
 		if(err || id > 1)
 		{
-			return response.error('失败!');
+			return response.success({'gold':0});
 		}
 		if(tag == 10)
 		{
@@ -769,7 +774,7 @@ AV.Cloud.define('increaseGold', function(request, response)
 			{
 				shareInfo.destroy();
 			}
-			response.error(error);
+			response.success({'gold':0});
 		});
 	});
 });
@@ -2585,6 +2590,36 @@ AV.Cloud.define('delChatListUser', function(request, response)
 		return response.error('error');
 	})
 });
+
+AV.Cloud.define('getWeChatOpenID', function(request, response)
+{
+	var code = request.params.code;
+	var apiurl = 'https://api.weixin.qq.com/sns/oauth2/access_token?appid=wxf3633e02a28d60f0&secret=e3738a2c867cdf51801da9caa5b0b883&code='+code+'&grant_type=authorization_code';
+	var options = 
+	{
+		url: apiurl,
+		method: "GET",
+	};
+ 	AV.Cloud.httpRequest({
+  	method: 'GET',
+ 	 headers: {
+  	  'Content-Type': 'application/json'
+  	},
+  	url: apiurl,
+  	success: function(httpResponse) {
+  		//console.log(httpResponse.text);
+  		var data = JSON.parse(httpResponse.text);
+  		if (data.errcode)
+  		{
+  			response.error(data.errmsg);
+  		}
+  		else
+  		{
+  			response.success(data);
+  		}
+  	}
+  	});
+})
 
 
 module.exports = AV.Cloud;

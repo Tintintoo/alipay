@@ -9,6 +9,8 @@ function reqCount()
 }
 var redisClient = require('./redis').redisClient;
 var common = require('./common');
+var WXPay = require('./lib/wxpay');
+var util = require('./lib/util');
 
 var gameRoom = AV.Object.extend('gameRoom');
 var gameRoomLog = AV.Object.extend('gameRoomLog');
@@ -31,6 +33,7 @@ global.giftInfo = {};
 var seedrandom = require('seedrandom');
 var gamblingInfo = AV.Object.extend('gamblingInfo');
 var clientHeartLog = AV.Object.extend('clientHeart');
+var WeChatOrder = AV.Object.extend('wechatOrder');
 
 var plantLog = AV.Object.extend('plantLog');
 
@@ -139,12 +142,14 @@ AV.Cloud.define('createGameRoom', function(request, response)
  {
  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
  	{
+ 		//console.log('检测金币和收获时间异常!');
  		clearInterval(timer);
- 		checkPetGoldAndGoldMax();
+ 		//checkPetGoldAndGoldMax();
  		//saveClientHeart();
  		//saveGamblingLog();
  		return;
  	}
+ 	checkPetGoldAndGoldMax();
  	checkPetGmabline();
  	checkPackageLog();
  	//检查用户是否卖钻石和金币
@@ -156,31 +161,34 @@ var giftSkip = 0;
 function checkPetGoldAndGoldMax()
 {
 	var query = new AV.Query('petInfo');
-	query.descending('updatedAt');
+	query.greaterThan('gold', 150000);
 	return query.find().then(function(results)
 	{
+		//console.log('查询到了', results.length);
 		for (var i = results.length - 1; i >= 0; i--) {
 			var data = results[i];
 			var date = common.stringToDate(data.get('goldHarvestAt'));
-			var goldNum = 0;
-			if (data.get('goldNum') > 150000)
+			var goldNum = data.get('goldMax');
+			if (goldNum > 150000)
 			{
-				goldNum = data.get('goldMax');
-				if (goldNum > 150000)
-				{
-					var goldMax = common.getPetGoldMax(data.get('petType'), data.get('level'));
-					data.set('goldMax', goldMax);
-					data.set('goldNum', goldMax);
-					if (date - new Date().getTime() > 7 * 86400000)
-					{
-						data.set('goldHarvestAt', 
-							parseInt( (goldMax * 600000)/ common.getGoldIncrease(data.get('petType'), data.get('level'))));
-
-					}
-				}
-				data.save();
+				goldNum = common.getPetGoldMax(data.get('petType'), data.get('level'));
+				data.set('goldMax', goldNum);
+				data.set('gold', parseInt(goldNum/2));
 			}
+			else
+			{
+				data.set('gold', parseInt(goldNum/2));
+			}
+			if (date - new Date().getTime() > 7 * 86400000)
+			{
+				var harvestDate = new Date(parseInt( (goldNum * 600000)/ common.getGoldIncrease(data.get('petType'), data.get('level'))));
+				data.set('goldHarvestAt', common.FormatDate(harvestDate));
+
+			}
+			//console.log('userID:',data.get('userID'));
+			//console.log('改正之后数据gold:'+data.get('gold') + 'goldMax'+data.get('goldMax')+'时间:'+ data.get('goldHarvestAt'));
 		}
+		return AV.Object.saveAll(results);
 	})
 }
 
@@ -964,7 +972,8 @@ AV.Cloud.define('upItem', function(request, response)
 			upCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
 			if(upCache.count <= 0 && request.params.userID != 6)
 			{
-				return response.error("上架次数不足,活动期间每天限制为10次!");
+				response.error("上架次数不足,每天限制为5次!");
+				return AV.Promise.error('上架次数不足,每天限制为5次!');
 			}
 			upCache.count -= 1;
 
@@ -1032,7 +1041,7 @@ AV.Cloud.define('upItem', function(request, response)
 			return response.success(auctionID);
 		}).catch(function(error)
 		{
-			if (error == 'over')
+			if (error == 'over' || error == '上架次数不足,每天限制为5次!')
 			{
 				return;
 			}
@@ -2054,98 +2063,106 @@ AV.Cloud.define('endMarriage', function(request, response)
 	//console.log('endMarriage');
 	var userID = request.params.userID;
 	var other = 0;
-
-	return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
-	{	
-		if(!cache || cache != request.params.token)
+	var key = 'endMarriage:'+request.params.userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
 		{
-			if(global.isReview == 0)
+			return response.success({'gold':0});
+		}
+		redisClient.expire(key, 60);
+		return redisClient.getAsync('token:' + request.params.userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
 			{
-				return AV.Promise.error('访问失败!');
+				if(global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
 			}
-		}
-		var query1 = new AV.Query('chatUsers');
-  		query1.equalTo('userID', userID);
+			var query1 = new AV.Query('chatUsers');
+				query1.equalTo('userID', userID);
 
-  		var query2 = new AV.Query('chatUsers');
-  		query2.equalTo('lover', userID);
-  		return AV.Query.or(query1, query2).find()
-  	}).then(function(results)
-	{
-		if(results.length != 2)
+				var query2 = new AV.Query('chatUsers');
+				query2.equalTo('lover', userID);
+				return AV.Query.or(query1, query2).find()
+		}).then(function(results)
 		{
-			return AV.Promise.error('离婚失败,请联系客服处理!');
-		}
-		for (var i = results.length - 1; i >= 0; i--)
-		 {
-		 	var data = results[i];
-		 	if (data.get('lover') <= 0)
-		 	{
-		 		return AV.Promise.error('离婚失败,请联系客服处理!');
-		 	}
-		 	if(data.get('userID') != userID)
-		 	{
-		 		other = data.get('userID');
-		 	}
-		 	else 
-		 	{
-		 		if(data.get('goldNum') < 50000)
-		 		{
-		 			return AV.Promise.error('金币不足!');
-		 		}
-		 		data.increment('goldNum', -50000);
-		 	}
-			data.set('lover', 0);
-		}
-		return AV.Object.saveAll(results);
-	
-	}).then(function(success)
-	{
-		var query1 = new AV.Query('marryApply');
-  		query1.equalTo('applyID', userID);
+			if(results.length != 2)
+			{
+				return AV.Promise.error('离婚失败,请联系客服处理!');
+			}
+			for (var i = results.length - 1; i >= 0; i--)
+			 {
+			 	var data = results[i];
+			 	if (data.get('lover') <= 0)
+			 	{
+			 		return AV.Promise.error('离婚失败,请联系客服处理!');
+			 	}
+			 	if(data.get('userID') != userID)
+			 	{
+			 		other = data.get('userID');
+			 	}
+			 	else 
+			 	{
+			 		if(data.get('goldNum') < 50000)
+			 		{
+			 			return AV.Promise.error('金币不足!');
+			 		}
+			 		data.increment('goldNum', -50000);
+			 	}
+				data.set('lover', 0);
+			}
+			return AV.Object.saveAll(results);
 
-  		var query2 = new AV.Query('marryApply');
-  		query2.equalTo('replyID', userID);
-		return AV.Query.or(query1, query2).find();
-
-	}).then(function(results)
-	{
-		return AV.Object.destroyAll(results);
-	}).then(function(success)
-	{
-		var query1 = new AV.Query('marryUsers');
-  		query1.equalTo('wife', userID);
-
-  		var query2 = new AV.Query('marryUsers');
-  		query2.equalTo('husband', userID);
-  		return AV.Query.or(query1, query2).find();
-	}).then(function(results)
-	{
-		return AV.Object.destroyAll(results);
-	}).then(function(success)
-	{
-		var query1 = new AV.Query('building');
-  		query1.equalTo('userID', userID);
-
-  		var query2 = new AV.Query('building');
-  		query2.equalTo('userID', other);
-  		return AV.Query.or(query1, query2).find();
-	}).then(function(results)
-	{
-		for (var i = results.length - 1; i >= 0; i--) 
+		}).then(function(success)
 		{
-			var data = results[i];
-			data.set('isWedding', 0);
-			data.set('hallWeddingTime', 0);
-			data.set('decorateWeddingTime', 0);
-		}
-		return AV.Object.saveAll(results);
-	}).then(function(success)
-	{
-		return response.success('离婚离婚成功!');
-	}).catch(function(error)
-	{
-		return response.error(error);
+			var query1 = new AV.Query('marryApply');
+				query1.equalTo('applyID', userID);
+
+				var query2 = new AV.Query('marryApply');
+				query2.equalTo('replyID', userID);
+			return AV.Query.or(query1, query2).find();
+
+		}).then(function(results)
+		{
+			return AV.Object.destroyAll(results);
+		}).then(function(success)
+		{
+			var query1 = new AV.Query('marryUsers');
+				query1.equalTo('wife', userID);
+
+				var query2 = new AV.Query('marryUsers');
+				query2.equalTo('husband', userID);
+				return AV.Query.or(query1, query2).find();
+		}).then(function(results)
+		{
+			return AV.Object.destroyAll(results);
+		}).then(function(success)
+		{
+			var query1 = new AV.Query('building');
+				query1.equalTo('userID', userID);
+
+				var query2 = new AV.Query('building');
+				query2.equalTo('userID', other);
+				return AV.Query.or(query1, query2).find();
+		}).then(function(results)
+		{
+			for (var i = results.length - 1; i >= 0; i--) 
+			{
+				var data = results[i];
+				data.set('isWedding', 0);
+				data.set('hallWeddingTime', 0);
+				data.set('decorateWeddingTime', 0);
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			return response.success('离婚离婚成功!');
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
 	});
 });
 var chestValue = {};
@@ -2218,9 +2235,9 @@ AV.Cloud.define('useChestBatch', function(request, response)
 				return AV.Promise.error('error');
 			}
 			var count = data.get('itemCount');
-			if(count > 20)
+			if(count > 10)
 			{
-				count = 20;
+				count = 10;
 			}
 
 			if(itemID > 11 && itemID < 16)//批量使用道具,累加所有增长
@@ -2305,12 +2322,12 @@ AV.Cloud.define('useChestBatch', function(request, response)
 			saveDatas.plus = parseInt(10 * plus);
 			if (itemID == 12)
 			{
-				var bookCount = Math.floor(data.get('level')/10 + 1) *100 + saveDatas[itemID];
-				if(data.get('attackBook') > bookCount)
+				var bookCount = Math.floor(data.get('level')/10 + 1) * 100;
+				if(data.get('attackBook') >= bookCount)
 				{
 					return AV.Promise.error('使用失败,可使用次数不足!!');
 				}
-				data.increment('attackBook', -1*saveDatas[itemID]);
+				data.increment('attackBook', -1 * saveDatas[itemID]);
 				data.increment('attackPlus', parseInt(10 * plus));
 
 				saveObjects.push(data);
@@ -2528,7 +2545,7 @@ AV.Cloud.define('UseItem', function(req, res)
 				}
 				return new AV.Query('package').equalTo('userID', req.params.userID).equalTo('itemID',newItem).first();
 			}
-			else if(item == 25 || item == 28)
+			else if(item == 25 || item == 28 || item == 20 || item == 21)
 			{
 				if(data.get('itemCount') <= 0)
 				{
@@ -2556,7 +2573,7 @@ AV.Cloud.define('UseItem', function(req, res)
 		}).then(function(data)
 		{
 			//开启宝箱
-			if(newItem < 0)
+			if(newItem > 0)
 			{
 				if(!data)
 				{
@@ -2587,6 +2604,43 @@ AV.Cloud.define('UseItem', function(req, res)
 				saveObj.push(data);
 				return AV.Object.saveAll(saveObj);
 			}
+			else if(item == 20)
+			{
+				if (data.get('badNum') <= 0)
+				{
+					return AV.Promise.error('使用失败,你没有差评可以消除!');
+				}
+				data.increment('badNum', -1);
+				saveObj.push(data);
+				return AV.Object.saveAll(saveObj);
+			}
+			else if(item == 21)
+			{
+				if (data.get('canUseVIP') == 1)
+				{
+					return AV.Promise.error('你已经体验过VIP了,无法再次体验!');
+				}
+				data.set('canUseVIP', 1);
+				var vipDate = common.stringToDate(data.get('VIPDay'));
+				vipType = common.getVipType(data.get('BonusPoint'));
+				if(vipType == 0)
+				{
+					vipType = 1;
+				}
+				//如果是续费,无需改动
+				if(common.checkDayGreater(vipDate, new Date()))
+				{
+
+					data.set('VIPDay', common.FormatDate(new Date(vipDate.getTime()+86400000 * 7), month));
+				}
+				else
+				{
+					data.set('VIPDay', common.FormatDate(new Date(new Date()+86400000 * 7)));
+				}
+				data.set('VIPType', vipType);
+				saveObj.push(data);
+				return AV.Object.saveAll();
+			}
 			else
 			{
 				if(data)
@@ -2606,7 +2660,7 @@ AV.Cloud.define('UseItem', function(req, res)
 			}
 		}).then(function(results)
 		{
-			if(newItem > 0)
+			if(newItem < 0)
 			{
 				res.success({'itemID':newItem,'charm':meili});
 				return AV.Promise.error('success');
@@ -2993,5 +3047,81 @@ AV.Cloud.define('checkUserUUID', function(request, response)
 	});
 });
 
+AV.Cloud.define('WeChatPreOrder', function(request, response)
+{
+	var wxpay = WXPay({
+    appid: 'wxf3633e02a28d60f0',
+    mch_id: '1364004502',
+    partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
+  });
+  //客户端IP
+  var clientIP = request.meta.remoteAddress;
+  var fee = 0;
+  var type = request.params.type;
+  var fee = request.params.fee * 100;
+  var userid = request.params.userid;
+  var notifyurl = 'http://asplp.leanapp.cn/pay/notify';
+  if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+  {
+    notifyurl ='http://stg-asplp.leanapp.cn/pay/notify';
+    fee = 1;
+  }
+  var date = new Date();
+
+  var orderData = 
+  {
+    appid:'wxf3633e02a28d60f0',
+    body:'有朋余额充值',
+    mch_id:"1364004502",
+    total_fee:fee,
+    notify_url:notifyurl,
+    out_trade_no: Math.floor((date.getTime() + Math.random()) * 1000).toString(),
+    nonce_str:util.generateNonceString(),
+    attach:userid.toString(), 
+    spbill_create_ip: clientIP,
+    trade_type:'APP'
+  }
+
+  wxpay.createUnifiedOrder(orderData, function(err, result)
+  {
+    //response.success(result);
+    if(result.return_code == 'SUCCESS')
+    {
+      
+      result.timestamp = date.getTime()/1000;
+      var retData = {
+        appid: 'wxf3633e02a28d60f0',
+        noncestr: result.nonce_str,
+        partnerid: '1364004502',
+        prepayid: result.prepay_id,
+        timestamp: parseInt(date.getTime()/1000),
+        package: 'Sign=WXPay',
+        sign: ''
+      }
+      retData.sign = wxpay.sign(retData);
+      //console.log(retData);
+      //返回预付单号
+      response.success(retData);
+      //写入数据库
+      var order = new WeChatOrder();
+      //记录订单号
+      order.set('tradeNo', orderData.out_trade_no);
+      //记录用户id
+      order.set('userID', userid);
+      //记录订单状态 0-下单
+      order.set('orderState', 0);
+      //记录购买物品
+      order.set('needFee', fee / 100);
+      order.set('type', 10);
+      order.set('des', '钱包余额');
+      order.save();
+    }
+    else
+    {
+      response.error(result.return_msg);
+    }
+    //console.log("统一下单结果:",result);
+});
+})
 
 module.exports = AV.Cloud;

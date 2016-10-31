@@ -23,15 +23,7 @@ router.get('/return', function(req, res)
   });
 });
 
-router.post('/notify', function(req, res) {
-  console.log('notify params:', req.params);
-  alipay.verify(req.params, function(err, result) {
-    console.log('result: ', err, result);
-    if (err) {
-      return res.send('err: ' + err);
-    }
-    return res.send('验证结果: ' + result);
-  });
-});
+router.post('/notify', wxpay.WXCallBack());
+
 
 module.exports = router;
