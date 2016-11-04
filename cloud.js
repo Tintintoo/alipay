@@ -83,10 +83,10 @@ AV.Cloud.define('WxCreateUnifiedOrder', function(request, response)
   {
     fee *= 0.5;
   }
-  var notifyurl = 'http://asplp.leanapp.cn/pay';
+  var notifyurl = 'http://asplp.leanapp.cn/wxpay';
   if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   {
-    notifyurl ='http://stg-asplp.leanapp.cn/pay';
+    notifyurl ='http://stg-asplp.leanapp.cn/wxpay';
     //fee = 1;
   }
   //console.log(notifyurl);

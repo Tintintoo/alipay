@@ -28,7 +28,8 @@ app.use(bodyParser.urlencoded({ extended: false }));
 // 可以将一类的路由单独保存在一个文件中
 //app.use('/', require('./routes/index'));
 app.use('/dbtocache', require('./routes/dbtocache'));
-app.use('/pay', require('./routes/pay'));
+app.use('/wxpay', require('./routes/pay'));
+app.use('/alipay', require('./routes/alipay'));
 
 //微信支付返回
 //app.get('/pay', wxpay.useWXCallback());
@@ -37,10 +38,11 @@ app.use('/pay', require('./routes/pay'));
 // 生成一个异常让后面的 err handler 捕获
 app.use(function(req, res, next) 
 {
-  console.log(req);
-  var err = new Error('Not Found');
-  err.status = 404;
-  next(err);
+  if (req.url === 'http://stg-asplp.leanapp.cn/alipay' || req.url === 'http://stg-asplp.leanapp.cn/alipay') 
+  {
+    req.headers['content-type'] = 'application/x-www-form-urlencoded';
+  }
+  next();
 });
 
 // error handlers
@@ -48,7 +50,7 @@ app.use(function(req, res, next)
 // 如果是开发环境，则将异常堆栈输出到页面，方便开发调试
 if (app.get('env') === 'development') 
 {
-  console.log("app:env");
+  //console.log("app:env");
   app.use(function(err, req, res, next) { // jshint ignore:line
     res.status(err.status || 500);
     res.send({

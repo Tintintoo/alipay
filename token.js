@@ -17,7 +17,7 @@ var growLog = AV.Object.extend('growLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
-	//console.log('logInUserByPhone');
+	console.log('logInUserByPhone');
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -55,8 +55,10 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		return redisClient.getAsync('token:' + userID);
 	}).then(function(cache)
 	{
+		console.log('登陆成功!');
 		if(cache)
 		{
+			redisClient.set(token, userID.toString());
 			response.success({'token':cache, 'userID':userID});
 		}
 		else
@@ -71,6 +73,7 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		
 	}).catch(function(error)
 	{
+		console.log('返回登录失败');
 		return response.error(error);
 	});
 });
@@ -116,6 +119,7 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 	{
 		if(cache)
 		{
+			redisClient.set(token, userID.toString());
 			response.success({'token':cache, 'userID':userID});
 		}
 		else
@@ -841,6 +845,72 @@ AV.Cloud.define('IncreaseSilver', function(request, response)
 	});
 });
 
+//银币偷取
+AV.Cloud.define('stealPetGold', function(request, response)
+{
+	if(request.params.remoteAddress == '114.254.97.89'
+		|| request.params.remoteAddress == '183.167.204.161')
+	{
+		return response.error('error');
+	}
+	var userID = request.params.userID;
+	var petID = request.params.petID;
+	var key = "stealPetGold:" + userID;
+	var silver = 0;
+	var date = new Date();
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁!');
+		}
+		redisClient.expire(key, 10);
+
+		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
+		{
+			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
+			var gold = data.get('gold');
+			var goldMax = data.get('goldMax');
+			silver = parseInt(goldMax * 0.1);
+			if(gold < goldMax * 0.4 || gold <= 0)
+			{
+				return AV.Promise.error('银币不足,无法偷取!');
+			}
+			else if(gold - silver < goldMax *0.4)
+			{
+				silver = parseInt(gold - goldMax*0.4);
+			}
+			if (silver > 15000)
+			{
+				silver = 15000;
+				data.set('gold', data.get('goldMax'));
+			}
+
+			data.increment('gold', -1 * silver);
+
+			if (silver > 15000 || silver < 0 || silver > data.get('goldMax') * 0.1)
+			{
+				return AV.Promise.error('收获失败!');
+			}
+			return data.save();
+		}).then(function(success)
+		{
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			data.increment('silverCoin', silver);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success({'silver':silver});
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
+	});
+});
+
+//银币收获
 AV.Cloud.define('harvestPetGold', function(request, response)
 {
 	//console.log('harvestPetGold');
@@ -865,54 +935,31 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
 			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
-			if(userID == data.get('userID'))//自己收获
+			if(harvTime > new Date())
 			{
-				if(harvTime > new Date())
-				{
-					return AV.Promise.error('还未到收获时间');
-				}
-				var newTime = new Date(date.getTime() + parseInt(data.get('goldMax') * 600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
-				if ( (newTime.getTime() - new Date().getTime()) / 1000 > 7 * 86400)
-				{
-					console.log('宠物银币收货时间时间:'+common.FormatDate(newTime) +'宠物银币恢复速度:'+common.getGoldIncrease(data.get('petType'), data.get('level')));
-				}
-				data.set('goldHarvestAt', common.FormatDate(newTime));
-				silver = data.get('gold');
-				if (silver < 0)
-				{
-					return AV.Promise.error('收获失败!');
-				}
-				if (silver > data.get('goldMax'))
-				{
-					silver = data.get('goldMax');
-				}
-				if (silver > 150000)
-				{
-					silver = 150000;
-				}
-				data.set('gold', 0);
+				return AV.Promise.error('还未到收获时间');
 			}
-			else
+			var newTime = new Date(date.getTime() + parseInt(data.get('goldMax') * 3600000/(common.getGoldIncrease(data.get('petType'), data.get('level')))));
+			if ( (newTime.getTime() - new Date().getTime()) / 1000 > 7 * 86400)
 			{
-				var gold = data.get('gold');
-				var goldMax = data.get('goldMax');
-				silver = parseInt(goldMax * 0.1);
-				if(gold < goldMax * 0.4 || gold <= 0)
-				{
-					return AV.Promise.error('银币不足,无法偷取!');
-				}
-				else if(gold - silver < goldMax *0.4)
-				{
-					silver = parseInt(gold - goldMax*0.4);
-				}
-				if (silver > 15000)
-				{
-					silver = 15000;
-					data.set('gold', data.get('goldMax'));
-				}
+				console.log('宠物银币收货时间时间:'+common.FormatDate(newTime) +'宠物银币恢复速度:'+common.getGoldIncrease(data.get('petType'), data.get('level')));
+			}
+			data.set('goldHarvestAt', common.FormatDate(newTime));
+			silver = data.get('gold');
+			if (silver < 0)
+			{
+				return AV.Promise.error('收获失败!');
+			}
+			if (silver > data.get('goldMax'))
+			{
+				silver = data.get('goldMax');
+			}
+			if (silver > 150000)
+			{
+				silver = 150000;
+			}
+			data.set('gold', 0);
 
-				data.increment('gold', -1 * silver);
-			}
 			if (silver > 150000 || silver < 0 || silver > data.get('goldMax'))
 			{
 				return AV.Promise.error('收获失败!');
@@ -934,7 +981,6 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 			return response.error(error);
 		});
 	});
-
 });
 
 AV.Cloud.define('IncreaseField', function(request, response)
@@ -1129,6 +1175,7 @@ AV.Cloud.define('useDiamond', function(request, response)
 	///console.log('useDiamond');
 	var userID = request.params.userID;
 	var tag = request.params.tag;
+	var petID = request.params.petID;
 	var diamond  = 0;
 	if(tag == 1)
 	{
@@ -1208,8 +1255,12 @@ AV.Cloud.define('useDiamond', function(request, response)
 		response.success({Diamond:diamond});
 	}).catch(function(error)
 	{
+		if (error == 'over')
+		{
+			return ;
+		}
 		response.error(error);
-	})
+	});
 });
 
 AV.Cloud.define('DaySign', function(request, response)

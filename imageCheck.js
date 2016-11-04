@@ -1116,5 +1116,99 @@ AV.Cloud.define('commentOrder', function(request, response)
 			response.error(error);
 		});
 	});
+});
+
+AV.Cloud.define('askForOrder', function(request, response)
+{
+	var userID = request.params.userID;
+	var type = request.params.type;
+	var diamond = request.params.diamond || 0;
+	var key = 'askOrder:' + userID;
+	var vip = 0;
+	var log = new global.moneyLog();
+	log.set('des', '钻石求订单');
+	redisClient.incr(key, function(err, id)
+	{
+		if(id > 1)
+		{
+			return response.error('订单状态已经发生改变,请刷新页面!');
+		}
+		redisClient.expire(key, 3000);
+		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('查询用户信息失败!');
+			}
+			vip = common.getVipType(data.get('BonusPoint'));
+			if (common.stringToDate(data.get('VIPDay')).getTime() < new Date().getTime())
+			{
+				vip = 0;
+			}
+			if (diamond == 1 && data.get('Diamond') < 10)
+			{
+				return AV.Promise.error('钻石不足!');
+			}
+			log.set('userid', userID);
+			log.set('diamondBefore', data.get('Diamond'));
+			data.increment('Diamond', diamond);
+			data.fetchWhenSave(true);
+			return data.save();
+		}).then(function(data)
+		{
+			log.set('diamondAfter', data.get('Diamond'));
+			return new AV.Query('anchorRoom').equalTo('userID', userID).equalTo('orderType', type).first();
+		}).then(function(data)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('查询主播信息失败!');
+			}
+			data.set('upTime', new Date());
+			data.set('newPoint', 6 + vip + diamond);
+			data.save();
+		}).then(function(success){
+			log.set('result', 'ok');
+			log.save();
+			response.success();
+		}).catch(function(error)
+		{
+			log.set('result', error);
+			log.save();
+			response.error(error);
+			redisClient.expire(key, 3);
+		});
+	});
+});
+
+AV.Cloud.define('updateAskForOrder', function(request, response)
+{
+	var anchors = request.params.anchors;
+	var key = 'updateAskForOrder';
+	redisClient.incr(key, function(err, id)
+	{
+		if(id > 1)
+		{
+			return response.error('订单状态已经发生改变,请刷新页面!');
+		}
+		redisClient.expire(key, 60);
+		return new AV.Query('anchorRoom').containedIn('anchorID', anchors).find().then(function(results)
+		{
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				var second = (data.get('upTime').getTime() - new Date().getTime())/300000;
+				data.increment('newPoint', parseInt(-1 * second));
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(success)
+		{
+			return response.success('');
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
+	});
+
 })
+
 module.exports = AV.Cloud;

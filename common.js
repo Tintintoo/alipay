@@ -1,10 +1,32 @@
 var AV = require('leanengine');
 var uuid = require('uuid');
+
 exports.checkDaySame = function checkDaySame(date, now)
 {
 	return date.getFullYear() == now.getFullYear() && date.getMonth() == now.getMonth() && date.getDate() == now.getDate();
 }
-
+exports.JointJson = function(reqData, encode, arrSkip)
+{
+    var array = arrSkip || ['pfx', 'partner_key', 'sign', 'key'];
+    var querystring = Object.keys(reqData).filter(function(key)
+    {
+        return reqData[key] !== undefined && reqData[key] !== '' && array.indexOf(key)<0;
+        }).sort();
+    var realstring='';
+    for(var key in querystring)
+    {
+        if (encode)
+        {
+            realstring += querystring[key] + '=' + encodeURIComponent(reqData[querystring[key]]) + '&';
+        }
+        else
+        {
+            realstring += querystring[key] + '=' + reqData[querystring[key]] + '&';
+        }
+    }
+    realstring = realstring.substr(0, realstring.length-1);
+    return realstring;
+}
 exports.checkDayGreater = function(date, now)
 {
     if(!date)
@@ -198,8 +220,32 @@ exports.getMapSilver = function(mapID)
 }
 exports.FormatDate = function(date)
 {
-    var ret = date.getFullYear()+"-"+(date.getMonth()+1)+"-"+date.getDate() + ' ' + date.getHours()+':'+
-    date.getMinutes()+':'+date.getSeconds();
+    var ret = date.getFullYear()+"-";
+    if (date.getMonth() +1 < 10)
+    {
+        ret += '0' ;
+    }
+    ret += (date.getMonth() + 1) + '-';
+    if (date.getDate() < 10)
+    {
+        ret += '0';
+    }
+    ret += date.getDate() + ' ';
+    if (date.getHours() < 10)
+    {
+        ret += '0';
+    }
+    ret += date.getHours() +':';
+    if (date.getMinutes() < 10)
+    {
+        ret += '0';
+    }
+    ret += date.getMinutes()+':';
+    if (date.getSeconds() < 10)
+    {
+        ret += '0';
+    }
+    ret += date.getSeconds();
     return ret;
 }
 exports.getBuildingItemPrice = function(itemID, itemType)

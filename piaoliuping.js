@@ -11,6 +11,10 @@ var redisClient = require('./redis').redisClient;
 var common = require('./common');
 var WXPay = require('./lib/wxpay');
 var util = require('./lib/util');
+var md5 = require('MD5');
+var crypto = require('crypto');
+var fs = require("fs");
+var moment = require('moment')
 
 var gameRoom = AV.Object.extend('gameRoom');
 var gameRoomLog = AV.Object.extend('gameRoomLog');
@@ -34,6 +38,7 @@ var seedrandom = require('seedrandom');
 var gamblingInfo = AV.Object.extend('gamblingInfo');
 var clientHeartLog = AV.Object.extend('clientHeart');
 var WeChatOrder = AV.Object.extend('wechatOrder');
+var alipayOrder = AV.Object.extend('alipayOrder');
 
 var plantLog = AV.Object.extend('plantLog');
 
@@ -140,20 +145,29 @@ AV.Cloud.define('createGameRoom', function(request, response)
 //挑战异常检测
  var timer = setInterval(function() 
  {
- 	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
- 	{
- 		//console.log('检测金币和收获时间异常!');
- 		clearInterval(timer);
- 		//checkPetGoldAndGoldMax();
- 		//saveClientHeart();
- 		//saveGamblingLog();
- 		return;
- 	}
- 	checkPetGoldAndGoldMax();
- 	checkPetGmabline();
- 	checkPackageLog();
- 	//检查用户是否卖钻石和金币
- 	checkSaleGold();
+ 	var key = 'timer60';
+ 	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return ;
+		}
+		redisClient.expire(key, 45);
+ 		if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+ 		{
+ 			//console.log('检测金币和收获时间异常!');
+ 			clearInterval(timer);
+ 			//checkPetGoldAndGoldMax();
+ 			//saveClientHeart();
+ 			//saveGamblingLog();
+ 			return;
+ 		}
+ 		checkPetGoldAndGoldMax();
+ 		checkPetGmabline();
+ 		checkPackageLog();
+ 		//检查用户是否卖钻石和金币
+ 		checkSaleGold();
+ 	});
  }, 60000);
 
 var giftSkip = 0;
@@ -317,6 +331,15 @@ var checkGiftInfo = setInterval(function()
 
 var checkPetLog = setInterval(function()
 {
+	var key = 'timer60';
+ 	redisClient.incr('timer60:', function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return ;
+		}
+		redisClient.expire(key, 45);
+
 	var query = new AV.Query('petInfoLog');
 	query.descending('createdAt')
 	query.find().then(function(results)
@@ -368,6 +391,7 @@ var checkPetLog = setInterval(function()
 			}
 		});
 	}).catch(console.log);
+});
 
 }, 60000);
 
@@ -1500,7 +1524,7 @@ AV.Cloud.define('clearPetRankFight',function(request, response)
 	redisClient.delAsync(key2);
 	response.success('请求成功!');
 });
-var gold = [0, 20, 50, 150, 250, 400, 700, 900, 1200, 1500, 2000];
+var gold = [0, 50, 70, 120, 250, 370, 540, 750, 850, 1100, 1400];
 var charm = [0, 5, 15, 40, 80, 180, 300, 450, 600, 700, 800];
 var plantName = ['','萝卜','胡萝卜','橙子','南瓜','小麦','雏菊','葡萄','西瓜','玉米','康乃馨'];
 AV.Cloud.define('harvestPlant',function(request, response)
@@ -2631,15 +2655,15 @@ AV.Cloud.define('UseItem', function(req, res)
 				if(common.checkDayGreater(vipDate, new Date()))
 				{
 
-					data.set('VIPDay', common.FormatDate(new Date(vipDate.getTime()+86400000 * 7), month));
+					data.set('VIPDay', common.FormatDate(new Date(vipDate.getTime()+86400000 * 7)));
 				}
 				else
 				{
-					data.set('VIPDay', common.FormatDate(new Date(new Date()+86400000 * 7)));
+					data.set('VIPDay', common.FormatDate(new Date(new Date().getTime()+86400000 * 7)));
 				}
 				data.set('VIPType', vipType);
 				saveObj.push(data);
-				return AV.Object.saveAll();
+				return AV.Object.saveAll(saveObj);
 			}
 			else
 			{
@@ -3124,4 +3148,172 @@ AV.Cloud.define('WeChatPreOrder', function(request, response)
 });
 })
 
+function getOrderNumber()
+{
+	var order = '';
+	order += parseInt(new Date().getTime()/1000);
+	order += util.generateNonceString(15 - order.length);
+	return order;
+}
+AV.Cloud.define('AliPayOrder', function(request, response)
+{
+  	var orderNum = getOrderNumber();
+  	var fee = request.params.fee;
+  	var type = request.params.type;
+  	var order = new alipayOrder();
+
+  	var notifyurl = 'http://asplp.leanapp.cn/alipay';
+  	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+  	{
+  		fee = 0.01;
+    	notifyurl ='http://stg-asplp.leanapp.cn/alipay';
+  	}
+
+  	//记录购买物品
+    order.set('needFee', fee);
+    order.set('type', type);
+  	order.set('orderState', 0);
+  	order.set('tradeNo', orderNum);
+  	order.set('userID', request.params.userID);
+  	order.save();
+
+  	var reqData = 
+  	{
+  		app_id:'2016071301613150',
+  		method:'alipay.trade.app.pay',
+  		charset:'utf-8',
+  		timestamp:common.FormatDate(new Date()),
+  		version:'1.0',
+  		sign_type:'RSA',
+  		notify_url:notifyurl,
+  		biz_content:'{\"timeout_express\":\"30m\",\"seller_id\":\"\",\"product_code\":\"QUICK_MSECURITY_PAY\",\"total_amount\":\"'+fee+'\",\"subject\":\"有朋充值\",\"body\":\"有朋充值\",\"out_trade_no\":\"'+orderNum+'\"}'
+  	}
+	var realstring = common.JointJson(reqData, false);
+	var encodeString = common.JointJson(reqData, true);
+
+	console.log(realstring);
+	console.log(encodeString);
+	var privatePem = fs.readFileSync('config/rsa_private_key_pkcs8.pem');
+	var prikey = privatePem.toString();
+
+	var sign = crypto.createSign('RSA-SHA1');
+	sign.update(realstring, 'utf8');
+	sig = sign.sign(prikey);
+
+	var resultStr = encodeString + '&sign=' + encodeURIComponent(sig.toString('base64'));
+	response.success({'orderString':resultStr});
+});
+
+AV.Cloud.define('petJoinFight', function(request, response)
+{
+	var petID = request.params.petID;
+	var userID = request.params.userID;
+	var vitality = request.params.vitality;
+	if (vitality < 5)
+	{
+		vitality = 5;
+	}
+	redisClient.incr("petFight:" + petID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('petFight:' + petID, 1);
+		return new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
+		{
+			if (!data || data.get('vatility') < vitality)
+			{
+				return AV.Promise.error('体力不足!');
+			}
+			data.increment('vatility', -1*vitality);
+			return data.save();
+		}).then(function(success)
+		{
+			return response.success('');
+		}).catch(function(error)
+		{
+			return response.error(error);
+		})
+	});
+});
+
+AV.Cloud.define('petBuyVitality', function(request, response)
+{
+	var userID = request.params.userID;
+	var petID = request.params.petID;
+	var type = request.params.type;
+	if (type != 1 && type != 2)
+	{
+		return response.error('参数错误!');
+	}
+
+	redisClient.incr("petBuyVitality:" + petID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('petBuyVitality:' + petID, 1);
+		var saveObjs = new Array();
+		var count = 0;
+		var needDiamond = 5;
+		var vitality = 50;
+		if (type == 2)
+		{
+			vitality = 120;
+			needDiamond = 10;
+		}
+		return new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
+		{
+			if (!data || data.get('userID') != userID)
+			{
+				return AV.Promise.error('购买异常!');
+			}
+			var date = data.get('buyValityAt');
+			if (date && common.checkDaySame(new Date(), date))
+			{
+				count = data.get('buyVality');
+				if (count >= 5)
+				{
+					return AV.Promise.error('可购买次数不足,每天限制为5次!');
+				}
+				data.increment('buyVality', 1);
+			}
+			else
+			{
+				data.set('buyVality', 1);
+			}
+			data.set('buyValityAt', new Date());
+			data.increment('vatility', vitality);
+			saveObjs.push(data);
+			return new AV.Query('chatUsers').equalTo('userID', data.get('userID')).first();
+		}).then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('用户信息查询失败!');
+			}
+			
+			for (var i = 0 ; i < count; i++)
+			{
+				needDiamond *= 2;
+			}
+			if (data.get('Diamond') < needDiamond)
+			{
+				return AV.Promise.error('钻石不足,无法购买体力!');
+			}
+			data.increment('Diamond', -1 * needDiamond);
+			saveObjs.push(data);
+			return AV.Object.saveAll(saveObjs);
+		}).then(function(success)
+		{
+			count += 1;
+			return response.success({'Diamond':needDiamond,'vitality':vitality, 'count':count});
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
+	});
+});
 module.exports = AV.Cloud;
