@@ -15,6 +15,8 @@ var orderLog = AV.Object.extend('orderLog');
 var audioLive = AV.Object.extend('audioLive');
 var audioLiveLog = AV.Object.extend('audioLiveLog');
 var anchorComment = AV.Object.extend('anchorComment');
+var anchorRoom = AV.Object.extend('anchorRoom');
+var cashApply = AV.Object.extend('cashApply');
 
 //产品密钥ID，产品标识 
 var secretId = "5c05f160dbb2ada14bdd2dadf158edc3";
@@ -1196,8 +1198,8 @@ AV.Cloud.define('updateAskForOrder', function(request, response)
 		{
 			for (var i = results.length - 1; i >= 0; i--) {
 				var data = results[i];
-				var second = (data.get('upTime').getTime() - new Date().getTime())/300000;
-				data.increment('newPoint', parseInt(-1 * second));
+				var second = (data.updatedAt.getTime() - new Date().getTime())/300000;
+				data.increment('newPoint', parseInt(second));
 			}
 			return AV.Object.saveAll(results);
 		}).then(function(success)
@@ -1211,4 +1213,67 @@ AV.Cloud.define('updateAskForOrder', function(request, response)
 
 })
 
+AV.Cloud.define('commitAnchor', function(request, response)
+{
+	var orderType = request.params.orderType;
+	var price = request.params.price;
+	var objectId = request.params.objectID;
+	var second = request.params.second;
+	var describe = request.params.describe;
+	var userID = request.params.userID;
+	var key = 'commitAnchor:' + orderType+'-' + userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(id > 1)
+		{
+			return response.error('三天之内请勿重复提交!');
+		}
+		redisClient.expire(key, 86400 * 3);
+		var file = AV.File.createWithoutData(objectId);
+  		var obj = new anchorRoom();
+  		obj.set('userID', userID);
+  		obj.set('orderType', orderType);
+  		obj.set('voice', file);
+  		obj.set('state', -1);//待审核
+  		obj.set('price', price);
+  		obj.set('second', second);
+  		obj.set('describe', describe);
+  		obj.fetchWhenSave();
+  		return obj.save().then(function(data)
+  		{
+  			return response.success('')
+  		}).catch(function(error)
+  		{
+  			redisClient.delAsync(key);
+  			return response.error('提交申请失败,请稍后重试');
+  		})
+	})
+})
+
+AV.Cloud.define('cashApply', function(request, response)
+{
+	var fMoney = request.params.fMoney;
+	var userID = request.params.userID;
+	var key = 'cashApply:'+userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(id > 1)
+		{
+			return response.error('三天之内只能发起一次提现请求!');
+		}
+		redisClient.expire(key, 86400 * 3);
+		var obj = new cashApply();
+		obj.set('userID', userID);
+		obj.set('cash', fMoney);
+		obj.set('state', 0);//待审核
+		return obj.save().then(function(success)
+		{
+			response.success('success');
+		}).catch(function(error)
+		{
+			redisClient.delAsync(key);
+			response.error('发起申请失败,请稍后重试!');
+		})
+	});
+})
 module.exports = AV.Cloud;
