@@ -48,7 +48,7 @@ AV.Cloud.define('checkSexImage', function(request, response)
 	var url = request.params.url;
 	var objectId = request.params.objectId;
 	var shareID = request.params.shareID;
-	saveShareImg(shareID, objectId);
+	//saveShareImg(shareID, objectId);
 	//请求参数
 	var post_data = {
 		// 1.设置公有有参数
@@ -132,18 +132,18 @@ AV.Cloud.define('checkSexImage', function(request, response)
 			}
 			else
 			{
-		 		console.log('ERROR:code=' + code+',msg='+msg);
+		 		//console.log('ERROR:code=' + code+',msg='+msg);
 		 		return response.error('error');
 			}
 		});
 		    //设置超时
 		req.setTimeout(10000,function(){
-		   	console.log('request timeout!');
+		   	//console.log('request timeout!');
 		    req.abort();
 		    return response.error('访问超时!');
 		});
 		req.on('error', function (e) {
-		    console.log('request ERROR: ' + e.message);
+		    //console.log('request ERROR: ' + e.message);
 		    return response.error(e.message);
 		});
 	});
@@ -154,6 +154,7 @@ AV.Cloud.define('checkSexImage', function(request, response)
 //下个版本上线之后需要注释
 function saveShareImg(shareID, objectId)
 {
+	return ;
 	console.log('写入图片信息!'+shareID);
 	if (shareID && shareID > 0)
 	{
@@ -166,7 +167,6 @@ function saveShareImg(shareID, objectId)
 			obj.set('image', AV.File.createWithoutData(objectId));
 			obj.set('imgType', 'png');
 			return obj.save();
-
 		})
 	}
 	else
@@ -196,23 +196,20 @@ AV.Cloud.define('yunxinLogIn', function(request, response)
 {
 	var timestamp = parseInt(new Date().getTime()/1000).toString();
 	var nonce = util.generateNonceString();
-	var appkey = '457df59253dc5233cd34d1642cefd742';
-	var appSecret = '2e4575f65998';
+	var appkey = '89066567011f783f02ae90c5a588a899';
+	var appSecret = '57af5474be15';
+	//新用户注册
 	var urlObj = urlutil.parse('https://api.netease.im/nimserver/user/create.action');
+
 	//拉取token
 	if(request.params.account)
 	{
 		urlObj = urlutil.parse('https://api.netease.im/nimserver/user/refreshToken.action');
-		var host = urlObj.hostname;
-		var path = urlObj.path;
-		var port = urlObj.port;
 	}
-	else//新用户注册
-	{
-		var host = urlObj.hostname;
-		var path = urlObj.path;
-		var port = urlObj.port;
-	}
+	var host = urlObj.hostname;
+	var path = urlObj.path;
+	var port = urlObj.port;
+
 	var options =
 	{
 		hostname: host,
@@ -239,7 +236,7 @@ AV.Cloud.define('yunxinLogIn', function(request, response)
 		});
 		res.on('end', function () 
 		{
-			console.log(responseData);
+			//console.log(responseData);
 		    var data = JSON.parse(responseData);
 			var code = data.code;
 			var msg = data.msg;
@@ -254,11 +251,11 @@ AV.Cloud.define('yunxinLogIn', function(request, response)
 			}
 		});
 		req.setTimeout(10000,function(){
-		   	console.log('request timeout!');
+		   //	console.log('request timeout!');
 		    req.abort();
 		});
 		req.on('error', function (e) {
-		    console.log('request ERROR: ' + e.message);
+		    //console.log('request ERROR: ' + e.message);
 		});
 	});
 	req.write(content);
@@ -277,13 +274,14 @@ AV.Cloud.define('setActor', function(request, response)
 	{
 			return response.error('参数错误!');
 	}
-	redisClient.incr('Actor:' + roomID, function(err, id)
+	var key = 'Actor:' +roomID +'-' +seat;
+	redisClient.incr(key, function(err, id)
 	{
 		if(err || id > 1)
 		{
 			return response.error('访问太过频繁!');
 		}
-		redisClient.expire('Actor:' + roomID, 1);
+		redisClient.expire(key, 3);
 
 		new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
 		{
@@ -293,6 +291,10 @@ AV.Cloud.define('setActor', function(request, response)
 			}
 			var seats = data.get('seat').split(',');
 			groupID = data.get('groupID');
+			while(seats.length < 8)
+			{
+				seats.push('0');
+			}
 
 			for (var i = seats.length - 1; i >= 0; i--) 
 			{
@@ -441,6 +443,11 @@ AV.Cloud.define('createLiveRoom', function(request, response)
 	var userID = request.params.userID;
 	var count = request.params.count;
 	var log = new audioLiveLog();
+	var passwd = '';
+	if (request.params.passwd)
+	{
+		passwd = request.params.passwd;
+	}
 	log.set('des', '创建聊天室');
 	return redisClient.incr('createLiveRoom:'+userID, function(err, id) 
 	{
@@ -463,12 +470,12 @@ AV.Cloud.define('createLiveRoom', function(request, response)
 		}).then(function(data)
 		{
 			log.set('state', 0);
-			if (!data || data.get('Diamond') < 36)
+			if (!data || data.get('Diamond') < 68)
 			{
 				return AV.Promise.error('钻石不足!');
 			}
 			log.set('beforeDiamond', data.get('Diamond'));
-			data.increment('Diamond', -36);
+			data.increment('Diamond', -68);
 			data.fetchWhenSave(true);
 			return data.save();
 		}).then(function(data)
@@ -481,8 +488,9 @@ AV.Cloud.define('createLiveRoom', function(request, response)
 			obj.set('title', request.params.title);
 			obj.set('seat', '0,0,0,0,0,0,0,0');
 			obj.set('anchor', userID);
+			obj.set('passwd', passwd);
 			obj.fetchWhenSave(true);
-			obj.save();
+			return obj.save();
 		}).then(function(data)
 		{
 			log.set('state', 2);
@@ -523,20 +531,40 @@ AV.Cloud.define('joinLiveRoom', function(request, response){
 				}
 			}
 			users.push(userID);
-			console.log(users);
+			//console.log(users);
 			redisClient.setAsync('liveRoomUser:'+roomID, users.join(','));
 		}).catch(function(error)
 		{
-			console.log(error);
+			//console.log(error);
 			response.error('error');
 		})
+	});
+});
+
+AV.Cloud.define('updateRoomUser', function(request, response)
+{
+	var users = request.params.users;
+	var roomID = request.params.roomID;
+	var key = 'joinLiveRoom:'+roomID;
+	redisClient.incr(key, function(err, id)
+	{
+		if (err || id > 1)
+		{
+
+		}
+		else
+		{
+			redisClient.expire(key, 5);
+			redisClient.setAsync('liveRoomUser:'+roomID, users.join(','));
+		}
+		response.success('');
 	});
 });
 
 AV.Cloud.define('leaveLiveRoom', function(request, response){
 	var userID = request.params.userID;
 	var roomID = request.params.roomID;
-	var key ="leaveLiveRoom:"+ roomID +'-' + userID;
+	var key = "leaveLiveRoom:"+ roomID +'-' + userID;
 	redisClient.incr(key, function(err, id)
 	{
 		if (err || id > 1)
@@ -596,7 +624,7 @@ AV.Cloud.define('liveRoomSendGift', function(request, response)
 	var roomID = request.params.roomID;
 	var groupID = '';
 	var gift = common.getLiveRoomGift(request.params.giftID);
-	if (!gift || gift.gold <= 0)
+	if (!gift || (gift.gold <= 0 && gift.diamond <= 0))
 	{
 		return response.error('查询失败!');
 	}
@@ -633,7 +661,12 @@ AV.Cloud.define('liveRoomSendGift', function(request, response)
 					{
 						return AV.Promise.error('金币不足!');
 					}
+					if (data.get('Diamond') < gift.diamond)
+					{
+						return AV.Promise.error('钻石不足!');
+					}
 					data.increment('goldNum', -1*gift.gold);
+					data.increment('Diamond', -1 * gift.diamond);
 					data.increment('useGold', gift.gold);
 					if(data.get('dailyUseGoldAt') && common.checkDaySame(new Date(), data.get('dailyUseGoldAt')))
 					{
@@ -648,7 +681,7 @@ AV.Cloud.define('liveRoomSendGift', function(request, response)
 				else
 				{
 					data.increment('beLikedNum', gift.charm);
-				//日魅力增加
+					//日魅力增加
 					if(data.get('dailylikeAt') && common.checkDaySame(data.get('dailylikeAt'), new Date()))//同一天,直接增加日魅力
 					{
 						data.increment('dailylike', gift.charm);
@@ -683,7 +716,7 @@ AV.Cloud.define('createAudioOrder', function(request, response)
 	var anchorUser = 0;
 	var log = new orderLog();
 	log.set('des', '下单');
-	if (time.getTime() < new Date().getTime() || hour < 1)
+	if (time.getTime() < new Date().getTime() - 60000 || hour < 1)
 	{
 		return response.error('时间有误,请选择一个正确的时间!');
 	}
@@ -711,20 +744,28 @@ AV.Cloud.define('createAudioOrder', function(request, response)
 			{
 				return AV.Promise.error('未查到主播信息,请稍后重试!');
 			}
+			if (data.get('state') != 0)
+			{
+				return AV.Promise.error('主播信息有误,请稍后重试!');
+			}
 			price = data.get('price');
+			if (price * hour != request.params.price)
+			{
+				return AV.Promise.error('主播价格已经更新,请返回重新刷新再下单!');
+			}
 			type = data.get('orderType');
 			anchorUser = data.get('userID');
 			return new AV.Query('chatUsers').equalTo('userID', userID).first();
 		}).then(function(data)
 		{
 			log.set('state', 0);
-			if (!data || data.get('cash') < price * hour)
+			if (!data || data.get('cash') < price * hour * 100)
 			{
 				return AV.Promise.error('余额不足,无法下单!');
 			}
 			log.set('userID', data.get('userID'));
 			log.set('beforeCash', data.get('cash'));
-			data.increment('cash', -1 * price * hour);
+			data.increment('cash', -100 * price * hour);
 			data.fetchWhenSave(true);
 			return data.save();
 		}).then(function(data)
@@ -750,7 +791,7 @@ AV.Cloud.define('createAudioOrder', function(request, response)
 			log.set('state', 2);
 			log.set('orderID', data.get('orderID'));
 			log.save();
-			response.success({'cash':price*hour,'orderID':data.get('orderID'), 'userID':anchorUser});
+			response.success({'cash':price*hour * 100,'orderID':data.get('orderID'), 'userID':anchorUser});
 		}).catch(function(error)
 		{
 			log.save();
@@ -804,7 +845,7 @@ AV.Cloud.define('acceptOrder', function(request, response)
 			else
 			{
 				cash = data.get('price');
-				if (data.get('state') == 0 || (data.get('state') == 1 && data.get('seconds') < 60))
+				if (data.get('state') == 0 || (data.get('state') == 1 && data.get('seconds') < 30))
 				{
 					if (userID == data.get('anchorUserID'))
 					{
@@ -823,7 +864,7 @@ AV.Cloud.define('acceptOrder', function(request, response)
 				}
 				else
 				{
-					return AV.Promise.error('无法取消订单!');
+					return AV.Promise.error('订单已经执行超过30秒,无法取消订单!');
 				}
 			}
 		}).then(function(data)
@@ -843,7 +884,7 @@ AV.Cloud.define('acceptOrder', function(request, response)
 				}
 				log.set('userID', data.get('userID'));
 				log.set('beforeCash', data.get('cash'));
-				data.increment('cash', cash);
+				data.increment('cash', cash * 100);
 				data.fetchWhenSave(true);
 				return data.save();
 			}
@@ -853,7 +894,7 @@ AV.Cloud.define('acceptOrder', function(request, response)
 			log.save();
 			if (userID == data.get('userID'))
 			{
-				response.success({'cash':cash});
+				response.success({'cash':cash * 100});
 			}
 			else
 			{
@@ -878,7 +919,7 @@ AV.Cloud.define('beginOrder', function(request, response)
 	{
 		if(id > 1)
 		{
-			return response.success({time:3600});
+			return response.success({time:300});
 		}
 		redisClient.expire('beginOrder:' + orderID, 1);
 		return redisClient.getAsync('token:' + userID).then(function(cache)
@@ -902,10 +943,17 @@ AV.Cloud.define('beginOrder', function(request, response)
 			{
 				return AV.Promise.error('异常!');
 			}
+			if (data.get('startTime'))
+			{
+				response.success({time:data.get('hour') * 300 - (new Date().getTime() - data.get('startTime').getTime())/1000});
+				return AV.Promise.error('over');
+			}
 			data.set('startTime', new Date());
 			data.set('seconds', 1);
-			response.success({time:data.get('hour') * 3600});
+			data.fetchWhenSave(true);
 			return data.save();
+		}).then(function(data){
+			response.success({time:data.get('hour') * 300});
 		}).catch(function(error)
 		{
 			response.error(error);
@@ -922,7 +970,7 @@ AV.Cloud.define('updateCancelOrder', function(request, response)
 	{
 		if(id > 1)
 		{
-			return response.success({time:3600});
+			return response.success({time:300, second:seconds});
 		}
 		redisClient.expire('updateCancelOrder:' + orderID, 3);
 		return new AV.Query('anchorOrder').equalTo('orderID', orderID).first().then(function(data)
@@ -938,14 +986,20 @@ AV.Cloud.define('updateCancelOrder', function(request, response)
 			if (data.get('startTime'))
 			{
 				seconds = parseInt((new Date().getTime() - data.get('startTime').getTime())/1000);
-				data.set('seconds', seconds);
 			}
 			else
 			{
 				data.set('startTime', new Date());
-				data.set('seconds', 5);
 			}
-			response.success({second:data.get('seconds'), time:data.get('hour') * 3600 - data.get('seconds')});
+			if (seconds < 300)
+			{
+				data.increment('seconds', 5);
+			}
+			else
+			{
+				data.increment('seconds', 60);
+			}
+			response.success({second:seconds, time:data.get('hour') * 300});
 			return data.save();
 		}).catch(function(error)
 		{
@@ -959,17 +1013,18 @@ AV.Cloud.define('endOrder', function(request, response)
 	var userID = request.params.userID;
 	var seconds = request.params.seconds;
 	var anchorID = 0;
+	var anchor = 0;
 	var price = 0;
 	var log = new orderLog();
 	log.set('des', '结束订单');
 	log.set('orderID', orderID);
-	redisClient.incr("updateCancelOrder:" + orderID, function(err, id)
+	redisClient.incr("endOrder:" + orderID, function(err, id)
 	{
 		if(id > 1)
 		{
-			return response.success({time:3600});
+			return response.success({time:300});
 		}
-		redisClient.expire('updateCancelOrder:' + orderID, 3);
+		redisClient.expire('endOrder:' + orderID, 3);
 		return new AV.Query('anchorOrder').equalTo('orderID', orderID).first().then(function(data)
 		{
 			if (!data || data.get('state') != 1)
@@ -984,12 +1039,12 @@ AV.Cloud.define('endOrder', function(request, response)
 			//如果是支付方式可以随时结束订单
 			if (userID != data.get('userID'))
 			{
-				if (!startTime && data.get('seconds') < 3600)
+				if (!startTime && data.get('seconds') < data.get('hour') * 300)
 				{
 					return AV.Promise.error('未到时间!');
 				}
-				if ((startTime.getTime - new Date().getTime())/1000 < data.get('hour') * 3600 
-					&& data.get('seconds') < data.get('hour')*3600 )
+				if (( new Date().getTime() - startTime.getTime())/1000 < data.get('hour') * 300 
+					&& data.get('seconds') < data.get('hour')*300 )
 				{
 					return AV.Promise.error('未到时间!');
 				}
@@ -999,15 +1054,23 @@ AV.Cloud.define('endOrder', function(request, response)
 
 			price = data.get('price');
 			anchorID = data.get('anchorUserID');
+			anchor = data.get('anchorID');
 			data.save();
 			return new AV.Query('chatUsers').equalTo('userID', anchorID).first();
 		}).then(function(data)
 		{
 			log.set('beforeCash', data.get('cash'));
 			log.set('userID', data.get('userID'));
-			data.increment('cash', price/2);
+			data.increment('cash', price * 50);
 			data.fetchWhenSave(true);
-			data.save();
+			return data.save();
+		}).then(function(data)
+		{
+			return new AV.Query('anchorRoom').equalTo('anchorID', anchor).first();
+		}).then(function(data)
+		{
+			data.increment('orderCount', 1);
+			return data.save();
 		}).then(function(data)
 		{
 			log.set('afterCash', data.get('cash'));
@@ -1015,6 +1078,7 @@ AV.Cloud.define('endOrder', function(request, response)
 			response.success('');
 		}).catch(function(error)
 		{
+			log.save();
 			return response.error(error);
 		})
 	});
@@ -1028,6 +1092,7 @@ AV.Cloud.define('commentOrder', function(request, response)
 	var comment = request.params.comment || '';
 	var cash = 0;
 	var anchor = 0;
+	var price = 0.0;
 	var log = new orderLog();
 	log.set('des', '评价');
 	log.set('orderID', orderID);
@@ -1068,6 +1133,7 @@ AV.Cloud.define('commentOrder', function(request, response)
 			data.set('state', 3);
 			data.set('star', star);
 			cash = data.get('price') *(star - 1)/ 10;
+			price = data.get('price');
 			anchor = data.get('anchorID');
 			return data.save();
 		}).then(function(data)
@@ -1082,7 +1148,11 @@ AV.Cloud.define('commentOrder', function(request, response)
 			}
 			var nCount = data.get('commentCount');
 			var oldStar = data.get('scole');
-			data.set('scole', (oldStar*nCount + star) / (nCount+1));
+			if (!oldStar)
+			{
+				oldStar = 0;
+			}
+			data.set('scole', (oldStar * nCount + star) / (nCount+1));
 			data.increment('commentCount', 1);
 			data.save();
 			return new AV.Query('chatUsers').equalTo('userID', data.get('userID')).first();
@@ -1096,20 +1166,23 @@ AV.Cloud.define('commentOrder', function(request, response)
 			log.set('beforeCash', data.get('cash'));
 			if (cash > 0)
 			{
-				data.increment("cash", cash);
+				data.increment("cash", cash * 100);
 			}
 			data.fetchWhenSave(true);
 			return data.save();
 		}).then(function(data)
 		{
 			log.set('afterCash', data.get('cash'));
+			log.set('userID', data.get('userID'));
 			log.save();
 			var obj = new anchorComment();
 			obj.set('orderID', orderID);
 			obj.set('anchorID', anchor);
 			obj.set('userID', userID);
 			obj.set('star', star);
+			obj.set('price', price);
 			obj.set('comment', comment);
+			obj.set('hide', request.params.hide);
 			obj.save();
 			response.success('');
 		}).catch(function(error)
@@ -1124,19 +1197,36 @@ AV.Cloud.define('askForOrder', function(request, response)
 {
 	var userID = request.params.userID;
 	var type = request.params.type;
-	var diamond = request.params.diamond || 0;
-	var key = 'askOrder:' + userID;
+	var key = 'askOrder:'+type + '-' + userID;
 	var vip = 0;
 	var log = new global.moneyLog();
-	log.set('des', '钻石求订单');
+	var diamond = 0;
+	log.set('des', '普通上榜')
+	if (request.params.diamond > 0)
+	{
+		log.set('des', '钻石上榜');
+		diamond = request.params.diamond;
+	}
 	redisClient.incr(key, function(err, id)
 	{
 		if(id > 1)
 		{
-			return response.error('订单状态已经发生改变,请刷新页面!');
+			return response.error('一小时之内只能上榜一次!');
 		}
 		redisClient.expire(key, 3000);
-		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		return new AV.Query('anchorRoom').equalTo('userID', userID).equalTo('orderType', type).first().then(function(data)
+		{
+			if(!data)
+			{
+				return AV.Promise.error('查询主播信息失败!');
+			}
+			data.set('upTime', new Date());
+			data.set('newPoint', 6 + vip + diamond * 2);
+			return data.save();
+		}).then(function(success)
+		{
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
 		{
 			if (!data)
 			{
@@ -1147,32 +1237,24 @@ AV.Cloud.define('askForOrder', function(request, response)
 			{
 				vip = 0;
 			}
-			if (diamond == 1 && data.get('Diamond') < 10)
+			if (diamond > 0 && data.get('Diamond') <  diamond)
 			{
 				return AV.Promise.error('钻石不足!');
 			}
 			log.set('userid', userID);
 			log.set('diamondBefore', data.get('Diamond'));
-			data.increment('Diamond', diamond);
+			if (diamond > 0)
+			{
+				data.increment('Diamond', -1 * diamond);
+			}
 			data.fetchWhenSave(true);
 			return data.save();
 		}).then(function(data)
 		{
 			log.set('diamondAfter', data.get('Diamond'));
-			return new AV.Query('anchorRoom').equalTo('userID', userID).equalTo('orderType', type).first();
-		}).then(function(data)
-		{
-			if(!data)
-			{
-				return AV.Promise.error('查询主播信息失败!');
-			}
-			data.set('upTime', new Date());
-			data.set('newPoint', 6 + vip + diamond);
-			data.save();
-		}).then(function(success){
 			log.set('result', 'ok');
 			log.save();
-			response.success();
+			response.success({'Diamond':diamond});
 		}).catch(function(error)
 		{
 			log.set('result', error);
@@ -1198,8 +1280,15 @@ AV.Cloud.define('updateAskForOrder', function(request, response)
 		{
 			for (var i = results.length - 1; i >= 0; i--) {
 				var data = results[i];
-				var second = (data.updatedAt.getTime() - new Date().getTime())/300000;
-				data.increment('newPoint', parseInt(second));
+				var second = (data.updatedAt.getTime() - new Date().getTime())/600000;
+				if (second <= -1)
+				{
+					data.increment('newPoint', parseInt(second));
+				}
+				else
+				{
+					return AV.Promise.error('error');
+				}
 			}
 			return AV.Object.saveAll(results);
 		}).then(function(success)
@@ -1210,8 +1299,7 @@ AV.Cloud.define('updateAskForOrder', function(request, response)
 			return response.error(error);
 		});
 	});
-
-})
+});
 
 AV.Cloud.define('commitAnchor', function(request, response)
 {
@@ -1226,19 +1314,18 @@ AV.Cloud.define('commitAnchor', function(request, response)
 	{
 		if(id > 1)
 		{
-			return response.error('三天之内请勿重复提交!');
+			return response.error('一周之内请勿重复提交!');
 		}
-		redisClient.expire(key, 86400 * 3);
+		redisClient.expire(key, 86400 * 7);
 		var file = AV.File.createWithoutData(objectId);
   		var obj = new anchorRoom();
   		obj.set('userID', userID);
   		obj.set('orderType', orderType);
   		obj.set('voice', file);
-  		obj.set('state', -1);//待审核
+  		obj.set('state', 0);//待审核, 目前版本直接上线
   		obj.set('price', price);
   		obj.set('second', second);
   		obj.set('describe', describe);
-  		obj.fetchWhenSave();
   		return obj.save().then(function(data)
   		{
   			return response.success('')
@@ -1252,16 +1339,16 @@ AV.Cloud.define('commitAnchor', function(request, response)
 
 AV.Cloud.define('cashApply', function(request, response)
 {
-	var fMoney = request.params.fMoney;
+	var fMoney = request.params.cash;
 	var userID = request.params.userID;
 	var key = 'cashApply:'+userID;
 	redisClient.incr(key, function(err, id)
 	{
 		if(id > 1)
 		{
-			return response.error('三天之内只能发起一次提现请求!');
+			return response.error('一周之内只能发起一次提现请求!');
 		}
-		redisClient.expire(key, 86400 * 3);
+		redisClient.expire(key, 86400 * 7);
 		var obj = new cashApply();
 		obj.set('userID', userID);
 		obj.set('cash', fMoney);
@@ -1276,4 +1363,302 @@ AV.Cloud.define('cashApply', function(request, response)
 		})
 	});
 })
+
+AV.Cloud.define('checkOrder', function(request, response){
+	var date = new Date();
+	var userID = request.params.userID;
+	var orderID = request.params.orderID;
+	return new AV.Query('anchorOrder').equalTo('orderID', orderID).first().then(function(data)
+	{
+		if (!data || data.get('state') != 1)
+		{
+			return AV.Promise.error('未查询到订单信息!');
+		}
+		var query = new AV.Query('anchorOrder');
+		query.descending('updatedAt');
+		query.equalTo('state', 1);
+		if (userID == data.get('userID'))
+		{
+			query.equalTo('anchorUserID', data.get('anchorUserID'));
+		}
+		else if(userID == data.get('anchorUserID'))
+		{
+			query.equalTo('anchorUserID', userID);
+		}
+		else
+		{
+			return AV.Promise.error('数据错误!');
+		}
+		return query.find();
+	}).then(function(results)
+	{
+		for (var i = results.length - 1; i >= 0; i--) {
+			var data = results[i];
+			var startTime = data.get('startTime');
+			if (startTime && date.getTime() / 1000 - startTime.getTime()/ 1000 < data.get('hour') * 300)
+			{
+				if (data.get('orderID') != orderID)
+				{
+					return AV.Promise.error('主播还有订单在执行,请稍后再试!');
+				}
+			}
+		}
+		response.success('');
+	}).catch(function(error)
+	{
+		return response.error(error);
+	});
+})
+
+AV.Cloud.define('editAnchorInfo', function(request, response)
+{
+	var userID = request.params.userID;
+	if (request.params.price < 1)
+	{
+		return response.error('参数错误!');
+	}
+	redisClient.incr("editAnchorInfo:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('editAnchorInfo:' + userID, 1);
+		return redisClient.getAsync('token:' +userID).then(function(token)
+		{
+			if(!token || token != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('anchorRoom').equalTo('anchorID', request.params.anchor).first();
+		}).then(function(data)
+		{
+			if (!data || data.get('userID') != userID)
+			{
+				return AV.Promise.error('未查询到信息');
+			}
+			data.set('price', request.params.price);
+			data.set('describe', request.params.comment);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success();
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('payBuyCash', function(request, response)
+{
+	var userID = request.params.userID;
+	var type = request.params.type;
+	var fee = request.params.fee;
+	if(fee < 1 || type < 1 || type > 2)
+	{
+		return response.error('参数错误');
+	}
+	var log = new orderLog();
+	redisClient.incr("payBuyCash:" + userID, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('访问频繁');
+		}
+		redisClient.expire('payBuyCash:' + userID, 1);
+		log.set('des', '余额充值金币钻石');
+		var goldNum = 0;
+		var Diamond = 0;
+		var goldMax = 0;
+		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('未查询到用户信息!');
+			}
+			if (data.get('cash') < fee * 100)
+			{
+				return AV.Promise.error('用户余额不足,请充值之后再试!');
+			}
+			log.set('beforeCash', data.get('cash'));
+			log.set('beforeDiamond', data.get('Diamond'));
+			log.set('userID', data.get('userID'));
+			log.set('beforeGold', data.get('goldNum'));
+			log.set('beforeGoldMax', data.get('goldMax'));
+			log.set('beforeBonus', data.get('BonusPoint'));
+			data.increment('cash', -100 * fee);
+
+			var vipType = data.get("VIPType");
+			var tip = [1.0,1.05,1.08,1.12,1.18,1.25,1.33,1.42,1.52,1.63, 1.63];
+			if(type == 1)//充值金币
+        	{
+        		goldNum = fee * 500;
+        		goldMax = fee * 100;
+        		if(fee < 300)
+        		{
+        			goldMax *= tip[vipType];
+        		}
+        		else
+        		{
+        			goldMax *= 2;
+        		}
+        		data.increment('goldMax', parseInt(goldMax));
+        		data.increment('Diamond', Math.floor(fee/500) * 88);
+        		data.increment('goldNum',parseInt(goldNum));
+        	}
+        	else
+        	{
+        		Diamond = fee;
+        		goldNum = fee * 300;
+        		if(fee < 300)
+        		{
+        			Diamond *= tip[vipType];
+        		}
+        		else
+        		{
+        			Diamond *= 2;
+        		}
+        		data.increment('Diamond', Diamond + Math.floor(fee/500) * 88);
+        		data.increment('goldNum',parseInt(goldNum));
+        	}
+        	data.increment('BonusPoint', fee);
+        	data.fetchWhenSave(true);
+        	return data.save();
+		}).then(function(data)
+		{
+			log.set('afterDiamond',data.get('Diamond'));
+			log.set('afterGold',data.get('goldNum'));
+			log.set('afterGoldMax',data.get('goldMax'));
+			log.set('afterBonus', data.get('BounusPoint'));
+			log.set('afterCash', data.get('cash'));
+			log.save();
+			response.success({'goldNum':goldNum,'goldMax':goldMax,'diamond':Diamond});
+
+		}).catch(function(error)
+		{
+			response.error('充值失败!');
+		});
+	});
+});
+
+AV.Cloud.define('lockLiveRoom', function(request, response)
+{
+	var roomID = request.params.roomID;
+	var lock = request.params.lock;
+	redisClient.incr('lockRoom:'+roomID, function(err, id){
+		if (err || id > 1)
+		{
+			return response.error('访问频繁!');
+		}
+		redisClient.expire('lockRoom:'+roomID, 3);
+		return new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
+		{
+			data.set('isLock', lock);
+			return data.save();
+		}).then(function(success)
+		{
+			response.success('');
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('chatCall', function(request,response)
+{
+	var userID = request.params.userID;
+	var key = 'chatCall:' +userID;
+	redisClient.incr(key, function(err, id)
+	{
+		if (err || id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		redisClient.expire(key, 1);
+		return new AV.Query('chatUsers').equalTo('userID', userID).first().then(function(data)
+		{	
+			if (data.get('Diamond') < 1)
+			{
+				return AV.Promise.error('钻石不足, 请充值后重试!');
+			}
+			data.increment('Diamond', -1);
+			return data.save();
+		}).then(function(success){
+			response.success('');
+		}).catch(function(error)
+		{
+			response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('chatCallUseDiamond', function(request, response)
+{
+	var userID = request.params.userID;
+	var token = request.params.token;
+	redisClient.getAsync('token:' + userID).then(function(cache)
+	{	
+		if(!cache || cache != request.params.token)
+		{
+			//评价人的令牌与userid不一致
+			if (global.isReview == 0)
+			{
+				return AV.Promise.error('服务器连接失败,请重新发起会话!');
+			}
+		}
+		return new AV.Query('chatUsers').equalTo('userID', userID).first();
+	}).then(function(data)
+	{
+		if (data.get('Diamond') < 1)
+		{
+			return AV.Promise.error('钻石不足,自动挂断!');
+		}
+		data.increment('Diamond', -1);
+		return data.save();
+	}).then(function(success)
+	{
+		response.success('');
+	}).catch(function(error)
+	{
+		response.error(error);
+	});
+});
+
+AV.Cloud.define('checkLiveRoomDate', function(request, response)
+{
+	var roomID = request.params.roomID;
+	var key = 'checkLiveRoom:' + roomID;
+	redisClient.incr(key, function(err, id)
+	{
+		if(err || id > 1)
+		{
+			return response.error('error');
+		}
+		redisClient.expire(key, 3600);
+		return new AV.Query('audioLive').equalTo('roomID', roomID).first().then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('未查询到数据!');
+			}
+			var second = (new Date().getTime() - data.createdAt.getTime()) / 1000;
+			if (second >= 7*86400)
+			{
+				data.destroy();
+			}
+			response.success('');
+		}).catch(function(error)
+		{
+			//console.log(error);
+			response.error(error);
+		})
+	});
+})
+
 module.exports = AV.Cloud;

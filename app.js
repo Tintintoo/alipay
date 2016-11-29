@@ -8,6 +8,7 @@ var cache = require('./userCache');
 var message = require('./message');
 var imageCheck = require('./imageCheck');
 var token = require('./token');
+var admin = require('./admin');
 
 var app = express();
 
@@ -21,6 +22,7 @@ app.use(message);
 app.use(cache);
 app.use(imageCheck);
 app.use(token);
+app.use(admin);
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));

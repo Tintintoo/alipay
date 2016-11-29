@@ -17,7 +17,7 @@ var growLog = AV.Object.extend('growLog');
 
 AV.Cloud.define('LogInUserByPhone', function(request, response)
 {
-	console.log('logInUserByPhone');
+	//console.log('logInUserByPhone');
 	var phoneNumber = request.params.phoneNumber;
 	var enCodePhone = request.params.encodePhone;
 	var passwd = request.params.passwd;
@@ -55,10 +55,11 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		return redisClient.getAsync('token:' + userID);
 	}).then(function(cache)
 	{
-		console.log('登陆成功!');
+		//console.log('登陆成功!');
 		if(cache)
 		{
-			redisClient.set(token, userID.toString());
+			redisClient.set(cache, userID.toString());
+			//console.log('写入2号',cache);
 			response.success({'token':cache, 'userID':userID});
 		}
 		else
@@ -73,7 +74,7 @@ AV.Cloud.define('LogInUserByPhone', function(request, response)
 		
 	}).catch(function(error)
 	{
-		console.log('返回登录失败');
+		//console.log('返回登录失败');
 		return response.error(error);
 	});
 });
@@ -82,6 +83,7 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 {
 	//console.log('loginByWx');
 	var openid = request.params.openid;
+	var plat = request.params.plat;
 	var userID = -1;
 	var query = new AV.Query('chatUsers');
 	query.equalTo('openid',openid);
@@ -99,6 +101,10 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 			obj.set('petReword', 10);
 			obj.set('myState', -1);
 			obj.set('openid', openid);
+			if (plat)
+			{
+				obj.set('plat', plat);
+			}
 			obj.fetchWhenSave(true);
 			return obj.save();
 		}
@@ -119,7 +125,7 @@ AV.Cloud.define('LogInUserByWeChat', function(request, response)
 	{
 		if(cache)
 		{
-			redisClient.set(token, userID.toString());
+			redisClient.set(cache, userID.toString());
 			response.success({'token':cache, 'userID':userID});
 		}
 		else
@@ -141,23 +147,37 @@ AV.Cloud.define('LogInByToken', function(request, response)
 {
 	//console.log('loginByToken' + parseInt(new Date().getTime()/1000));
 	var token = request.params.token;
+	var userID = 0;
+	var key ='';
 	redisClient.getAsync(token).then(function(cache)
 	{
 		if(cache)//得到用户,返回
 		{
-			redisClient.expire(token, 86400*7);
-			redisClient.expire('token'+cache, 86400*7);
-			//console.log('完事' + parseInt(new Date().getTime()/1000));
-			response.success(parseInt(cache));
+			redisClient.expire(token, 86400 * 7);
+			key = 'token:' + cache;
+			userID = parseInt(cache);
+			return redisClient.getAsync(key);
 		}
 		else
 		{
-			//console.log('完事' + parseInt(new Date().getTime()/1000));
 			response.error('本地登录已经过期,请重新输入账户密码!');
+		}
+	}).then(function(cache){
+		if (cache && cache == token)
+		{
+			redisClient.expire(key, 86400 * 7);
+			response.success(userID);
+		}
+		else //数据异常删掉token对应的userID
+		{
+			redisClient.delAsync(token);
+			if (userID != 0)
+			{
+			 	response.error('本地登录已经过期,请重新输入账户密码!');
+			}
 		}
 	}).catch(function(error)
 	{
-		//console.log('完事' + parseInt(new Date().getTime()/1000));
 		response.error('未知错误!');
 	});
 });
@@ -205,6 +225,7 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 	var passwd = request.params.passwd;
 	var code = request.params.code;
 	var type = request.params.type;
+	var plat = request.params.plat;
 	var userID = -1;
 	redisClient.incr('phone:'+phoneNumber, function(err, id)
 	{
@@ -243,6 +264,10 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 					obj.set('myState', -1);
 					obj.set('MobilePhone', encodePhone);
 					obj.set('Passwd', passwd);
+					if (plat)
+					{
+						obj.set('plat', plat);
+					}
 					obj.fetchWhenSave(true);
 					return obj.save();
 				}
@@ -271,7 +296,7 @@ AV.Cloud.define('checkPhoneVerify', function(request, response)
 			redisClient.setAsync('token:'+userID, token);
 			redisClient.setAsync(token, userID);
 			redisClient.expire(token, 86400*7);
-			redisClient.expire('token' + userID, 86400*7);
+			redisClient.expire('token:' + userID, 86400*7);
 
 			response.success('');
 		}).catch(function(error)
@@ -345,22 +370,34 @@ AV.Cloud.define('upOnlineTime', function(request, response)
 		if(data)
 		{
 			var now = new Date();
+			var old = data.get('onlineTime');
+			if (!request.params.force && old && now.getTime() - old.getTime() < 50000)
+			{
+				return AV.Promise.error('fast');
+			}
 			data.set('launchTime', now);
 			data.set('onlineTime', now);
+			data.set('plat', request.params.plat);
+			if (data.get('VIPDay') && 
+				common.stringToDate(data.get('VIPDay')).getTime() > new Date().getTime() && 
+				data.get('BonusPoint') == 0)
+			{
+				data.set('BonusPoint', 1);
+			}
 			data.save();
 			if(data.get('GagDate'))
 			{
 				if (new Date().getTime() < common.stringToDate(data.get('GagDate')).getTime())
 				{
-					return response.success({gag:1});
+					return response.success({gag:1, time:common.FormatDate(new Date())});
 				}
 			}
-			return response.success({gag:0});
+			return response.success({gag:0, time:common.FormatDate(new Date())});
 		}
-		return response.success({gag:0});
+		return response.success({gag:0, time:common.FormatDate(new Date())});
 	}).catch(function(error)
 	{
-		return response.success({gag:0});
+		return response.error(error);
 	});
 });
 
@@ -854,6 +891,7 @@ AV.Cloud.define('stealPetGold', function(request, response)
 		return response.error('error');
 	}
 	var userID = request.params.userID;
+	var curUser = request.params.curUser;
 	var petID = request.params.petID;
 	var key = "stealPetGold:" + userID;
 	var silver = 0;
@@ -874,7 +912,14 @@ AV.Cloud.define('stealPetGold', function(request, response)
 			silver = parseInt(goldMax * 0.1);
 			if(gold < goldMax * 0.4 || gold <= 0)
 			{
-				return AV.Promise.error('银币不足,无法偷取!');
+				if (curUser == data.get('userID'))
+				{
+					return AV.Promise.error('挑战失败,损失银币0');
+				}
+				else
+				{
+					return AV.Promise.error('银币不足,无法偷取!');
+				}
 			}
 			else if(gold - silver < goldMax *0.4)
 			{
@@ -934,6 +979,10 @@ AV.Cloud.define('harvestPetGold', function(request, response)
 
 		new AV.Query('petInfo').equalTo('petID', petID).first().then(function(data)
 		{
+			if (data.get('userID') != userID)
+			{
+				return AV.Promise.error('宠物银币偷取暂时关闭!');
+			}
 			var harvTime = new Date(data.get('goldHarvestAt').replace(/-/g,"/"));
 			if(harvTime > new Date())
 			{
@@ -2420,13 +2469,13 @@ AV.Cloud.define('getSerialSignReword', function(request, response)
 	//console.log('getSerialSignReword');
 	var userID = request.params.userID;
 	var uuid = request.params.uuid;
-	var dayReword = [{day:1,gold:100}, {day:2,gold:150}, {day:3,gold:200, goldMax:100,diamond:5}, {day:4,gold:240}, 
-    {day:5,gold:300,goldMax:150}, {day:6,gold:350},{day:7,gold:400, goldMax:200, diamond:8},
-    {day:8,gold:500}, {day:9,gold:600}, {day:10,gold:700,goldMax:240,diamond:10},
-    {day:11,gold:800},{day:12,gold:900,goldMax:300},{day:13,gold:1000},{day:14,gold:1100},{day:15,gold:1200,diamond:20},{day:16,gold:1300},
-    {day:17,gold:1500},{day:18,gold:1600,goldMax:400},{day:19,gold:1700},{day:20,gold:2000,goldMax:450, diamond:25},
-    {day:21,gold:2100},{day:22,gold:2200},{day:23,gold:2400},{day:24,gold:2500},{day:25,gold:3000,goldMax:600,diamond:30},
-    {day:26,gold:3100},{day:27,gold:3200},{day:28,gold:3300},{day:29,gold:3400},{day:30,gold:4000,goldMax:800,diamond:40}];
+	var dayReword = [{day:1,gold:500}, {day:2,gold:550}, {day:3,gold:600, goldMax:200,diamond:5}, {day:4,gold:650}, 
+    {day:5,gold:700,goldMax:300}, {day:6,gold:750},{day:7,gold:800, goldMax:350, diamond:8},{day:8,gold:850}, 
+    {day:9,gold:900}, {day:10,gold:950,goldMax:400,diamond:10},{day:11,gold:1000},{day:12,gold:1050,goldMax:400},
+    {day:13,gold:1100},{day:14,gold:1150},{day:15,gold:1200,diamond:20},{day:16,gold:1250},{day:17,gold:1300},
+    {day:18,gold:1400,goldMax:400},{day:19,gold:1500},{day:20,gold:1600,goldMax:450,diamond:25},{day:21,gold:1700},
+    {day:22,gold:1800},{day:23,gold:1900},{day:24,gold:2000},{day:25,gold:2100,goldMax:500,diamond:30},{day:26,gold:2200},
+    {day:27,gold:2300},{day:28,gold:2400},{day:29,gold:2500},{day:30,gold:3000,goldMax:600,diamond:40}];
 
     var info = {};
     var now = new Date();

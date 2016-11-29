@@ -398,13 +398,13 @@ exports.addMonth = function(date, month)
 }
 exports.getSignReword = function(vipType, day)
 {
-    var dayReword = [{day:1,gold:100}, {day:2,gold:150}, {day:3,gold:200, goldMax:100,diamond:5}, {day:4,gold:240}, 
-    {day:5,gold:300,goldMax:150}, {day:6,gold:350},{day:7,gold:400, goldMax:200, diamond:8},
-    {day:8,gold:500}, {day:9,gold:600}, {day:10,gold:700,goldMax:240,diamond:10},
-    {day:11,gold:800},{day:12,gold:900,goldMax:300},{day:13,gold:1000},{day:14,gold:1100},{day:15,gold:1200,diamond:20},{day:16,gold:1300},
-    {day:17,gold:1500},{day:18,gold:1600,goldMax:400},{day:19,gold:1700},{day:20,gold:2000,goldMax:450, diamond:25},
-    {day:21,gold:2100},{day:22,gold:2200},{day:23,gold:2400},{day:24,gold:2500},{day:25,gold:3000,goldMax:600,diamond:30},
-    {day:26,gold:3100},{day:27,gold:3200},{day:28,gold:3300},{day:29,gold:3400},{day:30,gold:4000,goldMax:800,diamond:40}];
+    var dayReword = [{day:1,gold:500}, {day:2,gold:550}, {day:3,gold:600, goldMax:200,diamond:5}, {day:4,gold:650}, 
+    {day:5,gold:700,goldMax:300}, {day:6,gold:750},{day:7,gold:800, goldMax:350, diamond:8},{day:8,gold:850}, 
+    {day:9,gold:900}, {day:10,gold:950,goldMax:400,diamond:10},{day:11,gold:1000},{day:12,gold:1050,goldMax:400},
+    {day:13,gold:1100},{day:14,gold:1150},{day:15,gold:1200,diamond:20},{day:16,gold:1250},{day:17,gold:1300},
+    {day:18,gold:1400,goldMax:400},{day:19,gold:1500},{day:20,gold:1600,goldMax:450,diamond:25},{day:21,gold:1700},
+    {day:22,gold:1800},{day:23,gold:1900},{day:24,gold:2000},{day:25,gold:2100,goldMax:500,diamond:30},{day:26,gold:2200},
+    {day:27,gold:2300},{day:28,gold:2400},{day:29,gold:2500},{day:30,gold:3000,goldMax:600,diamond:40}];
     var price = dayReword[day];
     price['goldVip'] = Math.floor(price.gold * vipType / 10);
     price['goldMaxVip'] = Math.floor(price.gold * vipType /100);
@@ -485,7 +485,99 @@ exports.getLiveRoomGift = function(giftID)
 {
     if (giftID == 11000)
     {
-        return {gold:1000,charm:500};
+        return {gold:1000, diamond:0, charm:500};
+    }
+    else if (giftID == 12000)
+    {
+        return {gold:2000, diamond:0, charm:1000};
+    }
+    else if (giftID == 13000)
+    {
+        return {gold:3000, diamond:0, charm:1500};
+    }
+    else if (giftID == 14000)
+    {
+        return {diamond:5, gold:0, charm:500};
+    }
+    else if (giftID == 15000)
+    {
+        return {diamond:12, gold:0, charm:1000};
+    }
+    else if (giftID == 17000)
+    {
+        return {diamond:25, gold:0, charm:2000};
+    }
+    else if (giftID == 20000)
+    {
+        return {diamond:35, gold:0, charm:3000};
+    }
+    else if (giftID == 22000)
+    {
+        return {diamond:68, gold:0, charm:6500};
+    }
+    else if (giftID == 25000)
+    {
+        return {diamond:88, gold:0, charm:8000};
     }
     return null;
+}
+
+exports.getItemPrice = function(item)
+{
+    if (item < 5)
+    {
+        return 200 * (item + 1);
+    }
+    else if (item < 8)
+    {
+        return 300 * (item - 4);
+    }
+    else if (item == 8 || item == 20 || item == 21 || item == 24 || item == 24)
+    {
+        return 400;
+    }
+    else if (item < 12)
+    {
+        return 500 * (item - 8);
+    }
+    else if (item < 16)
+    {
+        return 300;
+    }
+    else if (item  == 16 || item == 28)
+    {
+        return 1000;
+    }
+    else if (item < 20)
+    {
+        return 500 * (item - 16);
+    }
+    else if (item == 22 || item == 53 || item == 51)
+    {
+        return 10000;
+    }
+    else if (item == 23 || item == 26 || item == 27 || item == 39)
+    {
+        return 30000;
+    }
+    else if (item  >= 40 && item <= 43){
+        return 100 * (item - 39);
+    }
+    else if (item  >= 44 && item <= 47)
+    {
+        return 200 * (item - 43);
+    }
+    else if (item == 49 || item == 50 || item == 52)
+    {
+        return 5000;
+    }
+    else if (item == 54)
+    {
+        return  1000;
+    }
+    else if (item  > 54 && item <= 60)
+    {
+        return 10000*(item - 54);
+    }
+    return 0;
 }

@@ -14,7 +14,7 @@ var util = require('./lib/util');
 var md5 = require('MD5');
 var crypto = require('crypto');
 var fs = require("fs");
-var moment = require('moment')
+var moment = require('moment');
 
 var gameRoom = AV.Object.extend('gameRoom');
 var gameRoomLog = AV.Object.extend('gameRoomLog');
@@ -39,8 +39,9 @@ var gamblingInfo = AV.Object.extend('gamblingInfo');
 var clientHeartLog = AV.Object.extend('clientHeart');
 var WeChatOrder = AV.Object.extend('wechatOrder');
 var alipayOrder = AV.Object.extend('alipayOrder');
-
 var plantLog = AV.Object.extend('plantLog');
+var silverLog = AV.Object.extend('SilverLog');
+
 
 //是否在审核状态,审核状态不做处理
 global.isReview = 1;
@@ -145,6 +146,15 @@ AV.Cloud.define('createGameRoom', function(request, response)
 //挑战异常检测
  var timer = setInterval(function() 
  {
+ 	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
+	{
+		//console.log('检测金币和收获时间异常!');
+		clearInterval(timer);
+		//checkPetGoldAndGoldMax();
+		//saveClientHeart();
+		//saveGamblingLog();
+		return;
+	}
  	var key = 'timer60';
  	redisClient.incr(key, function(err, id)
 	{
@@ -153,15 +163,7 @@ AV.Cloud.define('createGameRoom', function(request, response)
 			return ;
 		}
 		redisClient.expire(key, 45);
- 		if (process.env.LEANCLOUD_APP_ENV == 'stage') 
- 		{
- 			//console.log('检测金币和收获时间异常!');
- 			clearInterval(timer);
- 			//checkPetGoldAndGoldMax();
- 			//saveClientHeart();
- 			//saveGamblingLog();
- 			return;
- 		}
+ 		
  		checkPetGoldAndGoldMax();
  		checkPetGmabline();
  		checkPackageLog();
@@ -916,14 +918,11 @@ AV.Cloud.define('upItem', function(request, response)
 		return response.error('查询失败！');
 	}
 	//数值控制
-	if(request.params.price <= 0 || request.params.itemCount <= 0)
+	if(request.params.gold <= 0 || request.params.itemCount <= 0)
 	{
 		return response.error('参数有误!');
 	}
-	if (request.params.price >= 200)
-	{
-		return response.error('定价不能超过200');
-	}
+
 	var key = 'upItem:' + request.params.userID;
 	//并发控制
 	redisClient.incr(key, function( err, id ) 
@@ -970,37 +969,7 @@ AV.Cloud.define('upItem', function(request, response)
 					return AV.Promise.error('访问失败!');
 				}
 			}
-			return redisClient.getAsync('upItemLimit:'+request.params.userID)
-		}).then(function(cache)
-		{
-			if (bIsOver == true)
-			{
-				return AV.Promise.error('over');
-			}
-			var now = new Date();
-			if(cache)
-			{
-				upCache = JSON.parse(cache);
-				var date = upCache.date.split('-');
-				if(date[0] != now.getFullYear() || date[1] != now.getMonth()+1 || date[2] != now.getDate())
-				{
-					newDay = true;
-					upCache.count = 5;
-				}
-			}
-			else
-			{
-				newDay = true;
-				upCache.count = 5;
-			}
-			upCache.date = now.getFullYear()+"-" +(now.getMonth()+1)+'-'+now.getDate();
-			if(upCache.count <= 0 && request.params.userID != 6)
-			{
-				response.error("上架次数不足,每天限制为5次!");
-				return AV.Promise.error('上架次数不足,每天限制为5次!');
-			}
-			upCache.count -= 1;
-
+			//无需判断次数,直接扣除手续费
 			var query = new AV.Query('package');
 			query.equalTo('userID', request.params.userID);
 			query.equalTo('itemID', request.params.itemID);
@@ -1034,8 +1003,10 @@ AV.Cloud.define('upItem', function(request, response)
 			obj.set('ownerID', request.params.userID);
 			obj.set('itemID', request.params.itemID);
 			obj.set('itemCount', request.params.itemCount);
-			obj.set('floorPrice', request.params.price);
+			//obj.set('floorPrice', request.params.price);
+			obj.set('gold', request.params.gold);
 			obj.set('itemName', request.params.name);
+			obj.set('ownerName', request.params.ownerName);
 			if(request.params.otherName)
 			{
 				obj.set('otherName', request.params.otherName);
@@ -1048,13 +1019,14 @@ AV.Cloud.define('upItem', function(request, response)
 			return obj.save();
 		}).then(function(obj)
 		{
-			redisClient.setAsync('upItemLimit:'+request.params.userID, JSON.stringify(upCache));
+			//redisClient.setAsync('upItemLimit:'+request.params.userID, JSON.stringify(upCache));
 			fail.set('step', 3);
 			var log = new acutionLog();
 			log.set('ownerID', obj.get('ownerID'));
 			log.set('acutionID', obj.get('auctionID'));
 			log.set('buyFor', "上架");
-			log.set('floorPrice', obj.get('floorPrice'));
+			//log.set('floorPrice', obj.get('floorPrice'));
+			log.set('gold', obj.get('gold'));
 			log.set('itemID', obj.get('itemID'));
 			log.set('itemCount', obj.get('itemCount'));
 			log.set('otherName', obj.get('otherName'));
@@ -1065,7 +1037,7 @@ AV.Cloud.define('upItem', function(request, response)
 			return response.success(auctionID);
 		}).catch(function(error)
 		{
-			if (error == 'over' || error == '上架次数不足,每天限制为5次!')
+			if (error == 'over')
 			{
 				return;
 			}
@@ -1108,6 +1080,9 @@ AV.Cloud.define('buyItem', function(request, response)
 		log.set('des', "交易中心购买");
 
 		var bIsOver = false;
+		var diamond = 0;
+		var buyer = 0;
+		var price = 0;
 		//检查是否已经被封禁
 		redisClient.getAsync('forbiddenUserID').then(function(cacheUser)
 		{
@@ -1139,8 +1114,7 @@ AV.Cloud.define('buyItem', function(request, response)
 			var query = new AV.Query('auctionItems');
 			query.equalTo('auctionID', reqData.auctionID);
 			var auctionItem;
-			var diamond = 0;
-			var buyer = 0;
+
 			return query.first();
 		}).then(function(data)//查询数据
 		{
@@ -1165,23 +1139,16 @@ AV.Cloud.define('buyItem', function(request, response)
 				return AV.Promise.error('指定购买人与实际购买人不一致!');
 			}
 			log.set('buyerName', data.get('otherName'));
-			diamond = data.get('floorPrice');
+			diamond = data.get('gold');
 			auctionItem = data;
 
 			if(reqData.owner == reqData.buyer)
 			{
-				//console.log('物品下架!'+reqData.owner);
-				if(common.checkDaySame(data.createdAt, new Date()))//如果是当天上下架物品
-				{
-					redisClient.getAsync('upItemLimit:' + reqData.owner).then(function(cache)
-					{
-						var upCache = JSON.parse(cache);
-						upCache.count += 1;
-						redisClient.setAsync('upItemLimit:' + reqData.owner, JSON.stringify(upCache));
-					});
-				}
-				
 				return AV.Promise.as('The good result.');
+			}
+			if (reqData.price && reqData.price > 0)
+			{
+				return AV.Promise.error('无法购买,只能购买金币上架物品!');
 			}
 
 			fail.set('step', 2);
@@ -1206,51 +1173,19 @@ AV.Cloud.define('buyItem', function(request, response)
 				var obj = results[i];
 				if(obj.get('userID') == reqData.owner)//收钱方
 				{
-
-					log.set('diamondBefore', obj.get('Diamond'));
-
-					if(buyer > 0)
-					{
-						if( obj.get('freeAuctionAt') && common.checkDaySame(new Date(), obj.get('freeAuctionAt')))
-						{
-							if(diamond >= 5 && diamond < 10)
-							{
-								diamond -= 1;
-							}
-							if(diamond >= 10 && diamond < 100)
-							{
-								diamond = parseInt(diamond * 0.9);
-							}
-							else if(diamond >= 100 && diamond < 500)
-							{
-								diamond = parseInt(diamond*0.85);
-							}
-							else if(diamond>= 500)
-							{
-								diamond = parseInt(diamond*0.8);
-							}
-						}
-						else if(diamond >= 5)//5钻以下的东西不收手续费
-						{
-							obj.set('freeAuctionAt', new Date());
-						}
-					}
-					else if(diamond >= 200)//超过200钻会收取10%的手续费
-					{
-						diamond = parseInt(diamond*0.9);
-					}
-					obj.increment('Diamond', diamond);
-					log.set('diamondIncrease', diamond);
+					log.set('goldBefore', obj.get('goldNum'));
+					obj.increment('goldNum', parseInt(diamond * 0.9));
+					log.set('goldIncrease', parseInt(diamond * 0.9));
 				}
 				else
 				{
-					if(obj.get('Diamond') < reqData.price)
+					if(obj.get('goldNum') < diamond)
 					{
-						log.set('otherdiamondBefore', obj.get('Diamond'));
+						log.set('othergoldBefore', obj.get('goldNum'));
 						//response.error('钻石数量不足!');
-						return AV.Promise.error('钻石数量不足!');
+						return AV.Promise.error('金币数量不足!');
 					}
-					obj.increment('Diamond', 0 - reqData.price);
+					obj.increment('goldNum', -1 * diamond);
 				}
 			}
 			return AV.Object.saveAll(results);
@@ -1281,7 +1216,6 @@ AV.Cloud.define('buyItem', function(request, response)
 					return obj.save();
 				}
 			}
-			
 			var obj = new package();
 			obj.set('itemID', reqData.itemID);
 			obj.set('itemCount', reqData.itemCount);
@@ -1290,7 +1224,7 @@ AV.Cloud.define('buyItem', function(request, response)
 		}).then(function(success)
 		{
 			fail.set('step', 7);
-			response.success({'price':diamond});
+			response.success({'price':parseInt(diamond * 0.9)});
 			if(reqData.owner != reqData.buyer)
 			{
 				log.save();
@@ -1390,7 +1324,15 @@ AV.Cloud.define('saveLandLog', function(request, response)
   var uuid = request.params.uuid;
   var clientIP = request.meta.remoteAddress;
   var token = request.params.token;
+  var deviceName = request.params.deviceName;
   var realToken = '';
+  redisClient.getAsync('saveUUID:'+uuid).then(function(cache)
+  {
+  	if(!cache)
+  	{
+  		redisClient.setAsync('saveUUID:'+uuid, JSON.stringify({state:0, date:common.FormatDate(new Date())}));
+  	}
+  });
 
   //此时保存一下UUID
   redisClient.setAsync("UUID:"+request.params.userID, uuid).catch(function(error)
@@ -1404,6 +1346,7 @@ AV.Cloud.define('saveLandLog', function(request, response)
   object.set('hack', request.params.hack);
   object.set('clientToken', token);
   object.set('UUID', uuid);
+  object.set('deviceName', deviceName);
   redisClient.getAsync('token:'+ request.params.userID).then(function(cache)
   {
   	if(cache)
@@ -1524,7 +1467,8 @@ AV.Cloud.define('clearPetRankFight',function(request, response)
 	redisClient.delAsync(key2);
 	response.success('请求成功!');
 });
-var gold = [0, 50, 70, 120, 250, 370, 540, 750, 850, 1100, 1400];
+var gold = [0, 50, 70, 150, 250, 400, 700, 900, 1200, 1500, 2000];
+//var gold = [0, 50, 70, 120, 250, 370, 540, 750, 850, 1100, 1400];
 var charm = [0, 5, 15, 40, 80, 180, 300, 450, 600, 700, 800];
 var plantName = ['','萝卜','胡萝卜','橙子','南瓜','小麦','雏菊','葡萄','西瓜','玉米','康乃馨'];
 AV.Cloud.define('harvestPlant',function(request, response)
@@ -1542,7 +1486,7 @@ AV.Cloud.define('harvestPlant',function(request, response)
 		{
 			return response.error('收取失败!');
 		}
-
+		var userID = request.params.userID;
 		var goldCount = 0;
 		var charmCount = 0;
 		var user = 0;
@@ -1550,9 +1494,43 @@ AV.Cloud.define('harvestPlant',function(request, response)
 		var plantID  = 0;
 		var count = 0;
 		var log = new plantLog();
-		return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first().then(function(data)
+		return redisClient.getAsync('Plant='+request.params.uuid).then(function(cache)
 		{
-			if(!data || data.get('plant') == 0)
+			var userIDs = new Array();
+			var has = false;
+			if (cache)
+			{
+				userIDs = cache.split(",");
+				for (var i = userIDs.length - 1; i >= 0; i--) 
+				{
+					if (userIDs[i] == userID)
+					{
+						has = true;
+					}
+				}
+				if (has == false && userIDs.length < 3)
+				{
+					userIDs.push(userID);
+					has = true;
+				}
+			}
+			else
+			{
+				userIDs.push(userID);
+				has = true;
+			}
+			redisClient.setAsync('Plant='+request.params.uuid, userIDs.join(','));
+			if (has)
+			{
+				return new AV.Query('building').equalTo('buildingNo', request.params.buildingNo).first();
+			}
+			else
+			{
+				return new AV.Query('building').equalTo('userID', -1).first();
+			}
+		}).then(function(data)
+		{
+			if(!data || data.get('plant') == 0 || data.get('userID') != userID)
 			{
 				return AV.Promise.error('查询失败!');
 			}
@@ -1574,7 +1552,7 @@ AV.Cloud.define('harvestPlant',function(request, response)
 			user = data.get('userID');
 			if (plantID >= 5)//如果此土地等级大于等于6
 	        {
-	            if (parseInt(Math.random() * 1000) % 10 ==0)
+	            if (parseInt(Math.random() * 1000) % 5 ==0)
 	            {
 	                diamond = parseInt(Math.random() * 1000) % 20 + 1;
 	            }
@@ -1624,6 +1602,7 @@ AV.Cloud.define('harvestPlant',function(request, response)
 
 		}).catch(function(error)
 		{
+			redisClient.delAsync(key);
 			response.error(error);
 		});
 	});
@@ -2494,6 +2473,7 @@ AV.Cloud.define('ComposeItem', function(request, response){
 			response.success('合成成功!');
 		}).catch(function(error)
 		{
+			console.log(error);
 			response.error(error);
 		});
 	});
@@ -2589,7 +2569,7 @@ AV.Cloud.define('UseItem', function(req, res)
 			}
 			else
 			{
-				//data.increment('itemCount', -1);
+				newItem = item+1;
 				data.destroy();
 				saveObj.push(data);
 				return new AV.Query('chatUsers').equalTo('userID', req.params.userID).first();
@@ -2597,7 +2577,7 @@ AV.Cloud.define('UseItem', function(req, res)
 		}).then(function(data)
 		{
 			//开启宝箱
-			if(newItem > 0)
+			if(item >= 30 && item <= 38)
 			{
 				if(!data)
 				{
@@ -2642,7 +2622,7 @@ AV.Cloud.define('UseItem', function(req, res)
 			{
 				if (data.get('canUseVIP') == 1)
 				{
-					return AV.Promise.error('你已经体验过VIP了,无法再次体验!');
+					//return AV.Promise.error('你已经体验过VIP了,无法再次体验!');
 				}
 				data.set('canUseVIP', 1);
 				var vipDate = common.stringToDate(data.get('VIPDay'));
@@ -2650,6 +2630,10 @@ AV.Cloud.define('UseItem', function(req, res)
 				if(vipType == 0)
 				{
 					vipType = 1;
+				}
+				if (data.get('BonusPoint') == 0)
+				{
+					data.set('BonusPoint', 1);
 				}
 				//如果是续费,无需改动
 				if(common.checkDayGreater(vipDate, new Date()))
@@ -2665,7 +2649,7 @@ AV.Cloud.define('UseItem', function(req, res)
 				saveObj.push(data);
 				return AV.Object.saveAll(saveObj);
 			}
-			else
+			else//使用金蛋
 			{
 				if(data)
 				{
@@ -2689,7 +2673,7 @@ AV.Cloud.define('UseItem', function(req, res)
 				res.success({'itemID':newItem,'charm':meili});
 				return AV.Promise.error('success');
 			}
-			else
+			else if (item >= 30 && item <= 38)
 			{
 				
 				var count = 0;
@@ -2724,6 +2708,10 @@ AV.Cloud.define('UseItem', function(req, res)
 				}
 				return AV.Object.saveAll(saveObj);
 			}
+			else
+			{
+				return AV.Promise.as('success');
+			}
 		}).then(function(success)
 		{
 			if(newItem > 0)
@@ -2753,7 +2741,8 @@ AV.Cloud.define('clientHeart', function(req, response)
   	{
     	if(!cache || cache != req.params.token)
     	{
-     	 //评价人的令牌与userid不一致
+    		 //评价人的令牌与userid不一致,删掉token,让用户重新登录
+    		 redisClient.delAsync(req.params.token);
      		if (global.isReview == 0)
      		{
      	  		return AV.Promise.error('token');
@@ -3084,10 +3073,10 @@ AV.Cloud.define('WeChatPreOrder', function(request, response)
   var type = request.params.type;
   var fee = request.params.fee * 100;
   var userid = request.params.userid;
-  var notifyurl = 'http://asplp.leanapp.cn/pay/notify';
+  var notifyurl = 'http://asplp.leanapp.cn/wxpay/notify';
   if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   {
-    notifyurl ='http://stg-asplp.leanapp.cn/pay/notify';
+    notifyurl ='http://stg-asplp.leanapp.cn/wxpay/notify';
     fee = 1;
   }
   var date = new Date();
@@ -3165,7 +3154,7 @@ AV.Cloud.define('AliPayOrder', function(request, response)
   	var notifyurl = 'http://asplp.leanapp.cn/alipay';
   	if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   	{
-  		fee = 0.01;
+  	//	fee = 0.01;
     	notifyurl ='http://stg-asplp.leanapp.cn/alipay';
   	}
 
@@ -3206,6 +3195,7 @@ AV.Cloud.define('AliPayOrder', function(request, response)
 
 AV.Cloud.define('petJoinFight', function(request, response)
 {
+	return response.success('');
 	var petID = request.params.petID;
 	var userID = request.params.userID;
 	var vitality = request.params.vitality;
@@ -3247,7 +3237,6 @@ AV.Cloud.define('petBuyVitality', function(request, response)
 	{
 		return response.error('参数错误!');
 	}
-
 	redisClient.incr("petBuyVitality:" + petID, function(err, id)
 	{
 		if(err || id > 1)
@@ -3274,10 +3263,10 @@ AV.Cloud.define('petBuyVitality', function(request, response)
 			if (date && common.checkDaySame(new Date(), date))
 			{
 				count = data.get('buyVality');
-				if (count >= 5)
-				{
-					return AV.Promise.error('可购买次数不足,每天限制为5次!');
-				}
+				//if (count >= 5)
+				//{
+				//	return AV.Promise.error('可购买次数不足,每天限制为5次!');
+				//}
 				data.increment('buyVality', 1);
 			}
 			else
@@ -3295,10 +3284,8 @@ AV.Cloud.define('petBuyVitality', function(request, response)
 				return AV.Promise.error('用户信息查询失败!');
 			}
 			
-			for (var i = 0 ; i < count; i++)
-			{
-				needDiamond *= 2;
-			}
+			needDiamond *= count + 1;
+
 			if (data.get('Diamond') < needDiamond)
 			{
 				return AV.Promise.error('钻石不足,无法购买体力!');
@@ -3316,4 +3303,180 @@ AV.Cloud.define('petBuyVitality', function(request, response)
 		});
 	});
 });
+
+AV.Cloud.define('canJoinPet', function(request, response)
+{
+	var userID = request.params.userID;
+	var uuid = request.params.uuid;
+	return redisClient.getAsync('JoinPet='+request.params.uuid).then(function(cache)
+	{
+		var userIDs = new Array();
+		var has = false;
+		if (cache)
+		{
+			userIDs = cache.split(",");
+			for (var i = userIDs.length - 1; i >= 0; i--) 
+			{
+				if (userIDs[i] == userID)
+				{
+					has = true;
+				}
+			}
+			if (has == false && userIDs.length < 3)
+			{
+				userIDs.push(userID);
+				has = true;
+			}
+		}
+		else
+		{
+			userIDs.push(userID);
+			has = true;
+		}
+		redisClient.setAsync('JoinPet='+uuid, userIDs.join(','));
+		if (has == false)
+		{
+			response.error('error');
+		}
+		else
+		{
+			response.success('');
+		}
+	});
+});
+
+AV.Cloud.define('invitation', function(request, response)
+{
+	var code = request.params.code;
+	var uuid = request.params.uuid;
+	var saveObj = {};
+	redisClient.incr('invitation:' + uuid, function(err, id)
+	{
+		if (err || id > 1)
+		{
+			return response.error('访问频繁');
+		}	
+		redisClient.expire('invitation:' + uuid, 1);
+		redisClient.getAsync('saveUUID:'+uuid).then(function(cache)
+		{
+			if (cache)
+			{
+				saveObj = JSON.parse(cache);
+				var date = common.stringToDate(saveObj.date);
+				if (saveObj.state != 0)
+				{
+					return AV.Promise.error('该设备已经填写过邀请码了!');
+				}
+				//一天之后就不算是新号了
+				if (common.checkDaySame(date, new Date()) == false)
+				{
+					return AV.Promise.error('该设备已经登录过其他用户,无法获得邀请奖励!');
+				}
+				saveObj.state = 1;
+			}
+			saveObj.state = 1;
+			saveObj.date = common.FormatDate(new Date());
+			var query1 =  new AV.Query('chatUsers').equalTo('invitationCode', code);
+			var query2 = new AV.Query('chatUsers').equalTo('userID', request.params.userID);
+			return AV.Query.or(query1, query2).find();
+		}).then(function(results)
+		{
+			if (results.length != 2)
+			{
+				return AV.Promise.error('查询用户信息失败失败!');
+			}
+			for (var i = results.length - 1; i >= 0; i--) {
+				var data = results[i];
+				if (data.get('userID') != request.params.userID)
+				{
+					if (data.get('bAlreadyYQ') >= 10)
+					{
+						return AV.Promise.error('对方领取奖励次数已经达到上限!');
+					}
+					data.increment('bAlreadyYQ', 1);
+				}
+				data.increment('Diamond', 20);
+			}
+			return AV.Object.saveAll(results);
+		}).then(function(data)
+		{
+			redisClient.setAsync('saveUUID:'+uuid, JSON.stringify(saveObj));
+			response.success('');
+		}).catch(function(error)
+		{
+			return response.error(error);
+		});
+	});
+});
+
+AV.Cloud.define('soldPackageItem', function(request, response)
+{
+	var userID = request.params.userID;
+	var itemID = request.params.itemID;
+	var key = "upItem:" + request.params.userID;
+	var silver =  0;
+	var log = new silverLog();
+	redisClient.incr(key, function(err, id)
+	{
+		if(id > 1)
+		{
+			return response.error('访问太过频繁!');
+		}
+		redisClient.expire(key, 1);
+		return redisClient.getAsync('token:' + userID).then(function(cache)
+		{	
+			if(!cache || cache != request.params.token)
+			{
+				//评价人的令牌与userid不一致
+				if (global.isReview == 0)
+				{
+					return AV.Promise.error('访问失败!');
+				}
+			}
+			return new AV.Query('package').equalTo('userID', userID).equalTo('itemID', itemID).first();
+		}).then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('该物品已经没有了,请刷新包裹重试!');
+			}
+			silver = common.getItemPrice(itemID) * data.get('itemCount');
+			if (silver < 1)
+			{
+				return AV.Promise.error('该物品无法回收,请稍后再试!');
+			}
+			log.set('userID', userID);
+			log.set('itemID', itemID);
+			log.set('itemCount', data.get('itemCount'));
+			log.set('silverIncrese', silver);
+			log.set('step', 0);
+			return data.destroy();
+		}).then(function(scuccess)
+		{
+			log.set('step', 1);
+			return new AV.Query('chatUsers').equalTo('userID', userID).first();
+		}).then(function(data)
+		{
+			if (!data)
+			{
+				return AV.Promise.error('查询用户信息失败!');
+			}
+			log.set('beforeSilver', data.get('silverCoin'));
+			data.increment('silverCoin', silver);
+			data.fetchWhenSave(true);
+			return data.save();
+		}).then(function(data)
+		{
+			log.set('step', 2);
+			log.set('afterSilver', data.get('silverCoin'));
+			log.save();
+			response.success({'silver':silver});
+		}).catch(function(error)
+		{
+			log.save();
+			response.error(error);
+		});
+	});
+});
+
 module.exports = AV.Cloud;

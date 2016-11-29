@@ -54,13 +54,10 @@ router.post('/', function(req, res)
 			var type = 0;
 			var userID = 0;
 			var goldNum = 0;
+			var goldMax = 0;
 			var Diamond = 0;
 			var cash = 0;
 			var total_fee = parseFloat(resData.buyer_pay_amount);
-			if (process.env.LEANCLOUD_APP_ENV == 'stage') 
-			{
-				total_fee = 100;
-			}
 			return new AV.Query('alipayOrder').equalTo('tradeNo', resData.out_trade_no).first().then(function(data)
 			{
 				if (!data)
@@ -100,17 +97,17 @@ router.post('/', function(req, res)
                 var bonus = 0;
                 if(type == 1)//充值金币
             	{
-            		goldNum = total_fee * 300;
+            		goldNum = total_fee * 500;
+            		goldMax = total_fee * 100;
             		if(total_fee < 300)
             		{
-            			goldNum *= 1.25;
-            			goldNum *= tip[vipType];
+            			goldMax *= tip[vipType];
             		}
             		else
             		{
-            			goldNum *= 2;
+            			goldMax *= 2;
             		}
-            		data.increment('goldMax', parseInt(goldNum));
+            		data.increment('goldMax', parseInt(goldMax));
             		data.increment('Diamond', Math.floor(total_fee/500) * 88);
             		data.increment('goldNum',parseInt(goldNum));
             		bonus = 1;
@@ -118,9 +115,9 @@ router.post('/', function(req, res)
             	else if (type == 2)
             	{
             		Diamond = total_fee;
+            		goldNum = total_fee * 300;
             		if(total_fee < 300)
             		{
-            			Diamond *= 1.25;
             			Diamond *= tip[vipType];
             		}
             		else
@@ -128,7 +125,7 @@ router.post('/', function(req, res)
             			Diamond *= 2;
             		}
             		data.increment('Diamond', Diamond + Math.floor(total_fee/500) * 88);
-            		data.increment('goldNum',parseInt(Diamond * 100));
+            		data.increment('goldNum',parseInt(goldNum));
             		bonus = 1;
             	}
             	else
@@ -148,8 +145,8 @@ router.post('/', function(req, res)
 	              //记录用户id
 	            log.set('userID', data.get('userID'));
 	              //记录购买物品
-	            log.set('goldMax', goldNum);
-	            log.set('goldNum', goldNum*3 + Diamond*100);
+	            log.set('goldMax', goldMax);
+	            log.set('goldNum',goldNum);
 	            log.set('Diamond', Diamond);
 	            log.set('vipType', vipType);
 	            data.fetchWhenSave(true);

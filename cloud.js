@@ -45,9 +45,9 @@ AV.Cloud.define('getWXPaySign', function(request, response){
     mch_id: '1364004502',
     partner_key: 'jiudianZxcvbnmDSAD1weqwkj89991oo' //微信商户平台API密钥
   });
-  console.log(request.params);
+  //console.log(request.params);
   var sign = wxpay.sign(request.params);
-  console.log(sign);
+  //console.log(sign);
   response.success(sign);
 })
 
@@ -216,12 +216,12 @@ AV.Cloud.define('queryWeChatOrder',function(request, response)
                       var goldMax = gold;
                       if(diamond > 0)
                       {
-                        gold += diamond * 100;
+                        gold += diamond * 300;
                       }
                       var vipType = avobj.get("VIPType");
                       if (vipType > 0 && price < 300)//购买在300以下 
                       {
-                          var tip = [1.0,1.05,1.08,1.12,1.18,1.25,1.33,1.42,1.52,1.63];
+                          var tip = [1.0, 1.05, 1.08, 1.12, 1.18,1.25,1.33,1.42,1.52,1.63];
                           gold *= tip[vipType];
                           diamond *= tip[vipType];
                       }
@@ -285,7 +285,7 @@ function getProductInfo(identify)
   {
     return {goldNum:7500, goldMax:1500, money:12};
   }
-  else if(identify == 'com.starfire.intheworld.gold8000')
+  else if(identify =='com.starfire.intheworld.gold8000')
   {
     return {goldNum:40000, goldMax:8000, money:68};
   }
@@ -295,27 +295,27 @@ function getProductInfo(identify)
   }
   else if(identify == 'com.starfire.intheworld.diamond6')
   {
-    return {diamond:6, goldNum:600, money:6};
+    return {diamond:6, goldNum:1800, money:6};
   }
   else if(identify == 'com.starfire.intheworld.diamond20')
   {
-    return {diamond:20, goldNum:2000, money:18};
+    return {diamond:20, goldNum:6000, money:18};
   }
   else if(identify == 'com.starfire.intheworld.diamond80')
   {
-    return {diamond:80, goldNum:8000, money:68};
+    return {diamond:80, goldNum:24000, money:68};
   }
   else if(identify == 'com.starfire.intheworld.diamond120')
   {
-    return {diamond:120, goldNum:12000, money:98};
+    return {diamond:120, goldNum:36000, money:98};
   }
   else if(identify == 'com.starfire.intheworld.diamond200')
   {
-    return {diamond:200, goldNum:20000, money:168};
+    return {diamond:200, goldNum:60000, money:168};
   }
   else if(identify == 'com.starfire.intheworld.diamond600_1')
   {
-    return {diamond:600, goldNum:60000, money:468};
+    return {diamond:600, goldNum:180000, money:468};
   }
   else
   {
@@ -331,13 +331,14 @@ AV.Cloud.define('payCheck', function(request, response)
   log.set('userID', request.params.userID);
   log.set('receiptData', request.params.receiptdata);
   log.set('identifier', request.params.identifier);
-  console.log(request.params);
+  //console.log(request.params);
   log.save();
 
   if(version == 0)
   {
       var identify = request.params.identifier;
       var product = getProductInfo(identify);
+
       if(!product.goldNum && !product.goldMax && !product.diamond)
       {
         return response.error('查询失败,请联系客服!');
@@ -353,7 +354,7 @@ AV.Cloud.define('payCheck', function(request, response)
           return response.error('用户读取失败!');
         }
         var increase = vip[common.getVipType(data.get('BonusPoint'))];
-        goldNum = parseInt(goldNum * increase);
+        //goldNum = parseInt(goldNum * increase);
         Diamond = parseInt(Diamond * increase);
         goldMax = parseInt(goldMax * increase);
         data.increment('goldNum', goldNum);
@@ -383,7 +384,7 @@ AV.Cloud.define('payCheck', function(request, response)
     var log = new iaplog();
     log.set('userID', request.params.userID);
     log.set('receiptData', request.params.receiptdata);
-    log.save();
+    //log.save();
     AV.Cloud.httpRequest({
   method: 'POST',
   headers: {
@@ -394,17 +395,18 @@ AV.Cloud.define('payCheck', function(request, response)
   success: function(httpResponse) {
     if(!version)
     {
-      console.log('Request succ ' + httpResponse.text);
+      //console.log('Request succ ' + httpResponse.text);
       response.success(httpResponse.text);
     }
     else if(version == 1)
     {
       var data = JSON.parse(httpResponse.text);
-      var identify = data.product_id;
+      var identify = data.receipt.product_id;
       var product = getProductInfo(identify);
+      //console.log(product);
       if(!product.goldNum && !product.goldMax && !product.diamond && !product.money)
       {
-        console.log('查询失败,请联系客服!');
+        //console.log('查询失败,请联系客服!');
         return response.error('查询失败,请联系客服!');
       }
       var goldNum = product.goldNum || 0;
@@ -415,11 +417,11 @@ AV.Cloud.define('payCheck', function(request, response)
       {
         if(!data)
         {
-          console.log('充值时用户查询失败!');
+          //console.log('充值时用户查询失败!');
           return response.error('用户读取失败!');
         }
         var increase = vip[common.getVipType(data.get('BonusPoint'))];
-        goldNum = parseInt(goldNum * increase);
+        //goldNum = parseInt(goldNum * increase);
         Diamond = parseInt(Diamond * increase);
         goldMax = parseInt(goldMax * increase);
         data.increment('goldNum', goldNum);
@@ -441,7 +443,7 @@ AV.Cloud.define('payCheck', function(request, response)
         log.save();
       }).catch(function(error)
       {
-        console.log(error);
+        //console.log(error);
         return response.error('查询用户失败!');
       });
     }
@@ -894,10 +896,10 @@ AV.Cloud.define('WeChatCreateOrder', function(request, response)
   var fee = request.params.fee * 100;
   var type = request.params.type;
   var userid = request.params.userid;
-  var notifyurl = 'http://asplp.leanapp.cn/pay';
+  var notifyurl = 'http://asplp.leanapp.cn/wxpay';
   if (process.env.LEANCLOUD_APP_ENV == 'stage') 
   {
-    notifyurl ='http://stg-asplp.leanapp.cn/pay';
+    notifyurl ='http://stg-asplp.leanapp.cn/wxpay';
     fee = 1;
   }
   //console.log(notifyurl);
