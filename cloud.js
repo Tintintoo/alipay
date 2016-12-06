@@ -281,39 +281,39 @@ function getProductInfo(identify)
   {
    return {goldNum:500,goldMax:100, money:1};
   }
-  else if(identify == 'com.starfire.intheworld.gold1500')
+  else if(identify == 'com.starfire.intheworld.gold1500' || identify == 'com.starfire.intheworldAd.gold1500')
   {
     return {goldNum:7500, goldMax:1500, money:12};
   }
-  else if(identify =='com.starfire.intheworld.gold8000')
+  else if(identify =='com.starfire.intheworld.gold8000' || identify == "com.starfire.intheworldAd.gold8000")
   {
     return {goldNum:40000, goldMax:8000, money:68};
   }
-  else if(identify == 'com.starfire.intheworld.gold600')
+  else if(identify == 'com.starfire.intheworld.gold600' || identify == "com.starfire.intheworldAd.gold600")
   {
     return {goldNum:3000, goldMax:600, money:6};
   }
-  else if(identify == 'com.starfire.intheworld.diamond6')
+  else if(identify == 'com.starfire.intheworld.diamond6' || identify == "com.starfire.intheworldAd.diamond6")
   {
     return {diamond:6, goldNum:1800, money:6};
   }
-  else if(identify == 'com.starfire.intheworld.diamond20')
+  else if(identify == 'com.starfire.intheworld.diamond20' || identify == "com.starfire.intheworldAd.diamond20")
   {
     return {diamond:20, goldNum:6000, money:18};
   }
-  else if(identify == 'com.starfire.intheworld.diamond80')
+  else if(identify == 'com.starfire.intheworld.diamond80' || identify == "com.starfire.intheworldAd.diamond80")
   {
     return {diamond:80, goldNum:24000, money:68};
   }
-  else if(identify == 'com.starfire.intheworld.diamond120')
+  else if(identify == 'com.starfire.intheworld.diamond120' || identify == "com.starfire.intheworldAd.diamond120")
   {
     return {diamond:120, goldNum:36000, money:98};
   }
-  else if(identify == 'com.starfire.intheworld.diamond200')
+  else if(identify == 'com.starfire.intheworld.diamond200' || identify == "com.starfire.intheworldAd.diamond200")
   {
     return {diamond:200, goldNum:60000, money:168};
   }
-  else if(identify == 'com.starfire.intheworld.diamond600_1')
+  else if(identify == 'com.starfire.intheworld.diamond600_1' || identify == "com.starfire.intheworldAd.diamond600_1")
   {
     return {diamond:600, goldNum:180000, money:468};
   }
@@ -326,11 +326,16 @@ AV.Cloud.define('payCheck', function(request, response)
 {
   var vip = [1.0, 1.05, 1.08, 1.12, 1.18, 1.25, 1.33, 1.42, 1.52, 1.63, 1.63, 1.63, 1.63];
   var version = request.params.version;
+  var packageVersion = request.params.packageVersion;
 
   var log = new iaplog();
   log.set('userID', request.params.userID);
   log.set('receiptData', request.params.receiptdata);
   log.set('identifier', request.params.identifier);
+  if (packageVersion)
+  {
+    log.set('packageVersion', packageVersion);
+  }
   //console.log(request.params);
   log.save();
 

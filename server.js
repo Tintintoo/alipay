@@ -1,9 +1,9 @@
 'use strict';
 var AV = require('leanengine');
 
-var APP_ID = process.env.LEANCLOUD_APP_ID|| 'ifmmzg0hwfo69zdho7dwwjlakqupnmjuukcab6pothxs50i0';
-var APP_KEY = process.env.LEANCLOUD_APP_KEY|| '0gdj48papdbw5qisfzq1wr4lmlzzpp6ebffiu6rn1voppfb6';
-var MASTER_KEY = process.env.LEANCLOUD_APP_MASTER_KEY|| 'j1vyg8hkoqfq2bul6n4ontu2yspylq7lk8nzjsi14ywbfo5r';
+var APP_ID = process.env.LEANCLOUD_APP_ID|| 'r6XopwaYSDSDE8GKtlaqLIOs-MdYXbMMI';
+var APP_KEY = process.env.LEANCLOUD_APP_KEY|| 'HLFErUP6ng2wuVw0yXw3cPMj';
+var MASTER_KEY = process.env.LEANCLOUD_APP_MASTER_KEY|| 'xaWpwHLWDImSsVfXgVPuIqqM';
 
 AV.initialize(APP_ID, APP_KEY, MASTER_KEY);
 AV.Cloud.useMasterKey();

@@ -956,6 +956,10 @@ AV.Cloud.define('beginOrder', function(request, response)
 			response.success({time:data.get('hour') * 300});
 		}).catch(function(error)
 		{
+			if(error == 'over')
+			{
+				return;
+			}
 			response.error(error);
 		})
 	});
@@ -1648,7 +1652,7 @@ AV.Cloud.define('checkLiveRoomDate', function(request, response)
 				return AV.Promise.error('未查询到数据!');
 			}
 			var second = (new Date().getTime() - data.createdAt.getTime()) / 1000;
-			if (second >= 7*86400)
+			if (second >= 7 * 86400)
 			{
 				data.destroy();
 			}

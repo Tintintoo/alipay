@@ -409,6 +409,7 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 	var type = request.params.type;
 	var mutiple = request.params.mutiple;
 	var token = request.params.token;
+	var sendtype = request.params.sendtype;
 	//参数判断
 	if(type == 1)
 	{
@@ -501,11 +502,15 @@ AV.Cloud.define('PraiseAndBad', function(request, response)
 				{
 					data.increment('goldMax', gold.goldMax);
 				}
+				if (sendtype && sendtype == 1)
+				{
+					data.increment('beLikedNum', 50);
+				}
 				return data.save();
 			}
 			else
 			{
-				var gold = {goldNum:-50};//common.getBadReview(data.get('badNum'));
+				var gold = {goldNum: -50};//common.getBadReview(data.get('badNum'));
 				resData = gold;
 				resData.mutiple = mutiple;
 				data.increment('badNum', 1);
